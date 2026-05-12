@@ -70,8 +70,9 @@ void MultiOtoAudioProcessorEditor::buttonClicked(juce::Button* b) {
 
 void MultiOtoAudioProcessorEditor::paint(juce::Graphics& g) {
     // 高級感あふれるメタリックな濃い茶色のグラデーション
-    juce::ColourGradient grad(juce::Colour(0xFF352215), 0.0f, 0.0f,
-        juce::Colour(0xFF100A06), 0.0f, (float)getHeight(), false);
+    juce::ColourGradient grad(
+        juce::Colour(0xFF170801), 0.0f, 0.0f,
+        juce::Colour(0xFF1c0901), 0.0f, (float)getHeight(), false);
     g.setGradientFill(grad);
     g.fillAll();
 }
