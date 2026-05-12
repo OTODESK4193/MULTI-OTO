@@ -7,7 +7,7 @@ MultiOtoLookAndFeel::MultiOtoLookAndFeel() {
 }
 
 void MultiOtoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, float sliderPos, float startAngle, float endAngle, juce::Slider& slider) {
-    juce::ignoreUnused(slider); // C4100対策
+    juce::ignoreUnused(slider);
     auto b = juce::Rectangle<float>((float)x, (float)y, (float)w, (float)h).reduced(2.0f);
     float cx = b.getCentreX(), cy = b.getCentreY();
     float r = juce::jmin(b.getWidth(), b.getHeight()) * 0.42f;
@@ -36,9 +36,19 @@ void MultiOtoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int 
 }
 
 void MultiOtoLookAndFeel::drawGroupComponentOutline(juce::Graphics& g, int w, int h, const juce::String& text, const juce::Justification&, juce::GroupComponent&) {
+    // 枠線の描画
     g.setColour(MultiOtoColors::Border);
     g.drawRoundedRectangle(0.5f, 8.0f, (float)w - 1.0f, (float)h - 9.0f, 4.0f, 1.0f);
+
+    juce::Font font(juce::FontOptions(11.0f, juce::Font::bold));
+    g.setFont(font);
+    int textW = font.getStringWidth(text);
+
+    // 【修正】枠線が文字を貫通しないよう、文字の裏側の背景をベースの茶色で塗りつぶす
+    g.setColour(juce::Colour(0xFF261810));
+    g.fillRect(8, 0, textW + 12, 16);
+
+    // 文字の描画
     g.setColour(MultiOtoColors::TextSecondary);
-    g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
-    g.drawText(text, 10, 0, w - 20, 16, juce::Justification::left);
+    g.drawText(text, 14, 0, textW, 16, juce::Justification::left);
 }

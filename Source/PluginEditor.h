@@ -29,5 +29,9 @@ private:
 
     ArcKnob postHPF, postLPF, dryWet, outGain, limitCeil;
 
+    // Phase Mode 用のUIを追加
+    juce::ComboBox phaseModeBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> phaseModeAttachment;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MultiOtoAudioProcessorEditor)
 };

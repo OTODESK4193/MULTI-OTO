@@ -5,7 +5,6 @@ MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor(MultiOtoAudioProcesso
     : AudioProcessorEditor(&p), audioProcessor(p) {
     auto& apvts = audioProcessor.apvts;
 
-    // --- Build Components ---
     totalOtt.build(apvts, "total_ott", "COUNT", this, laf);
     inGain.build(apvts, "in_gain", "IN", this, laf);
     drive.build(apvts, "drive", "DRIVE", this, laf);
@@ -41,6 +40,12 @@ MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor(MultiOtoAudioProcesso
     outGain.build(apvts, "out_gain", "OUT", this, laf);
     limitCeil.build(apvts, "limit_ceil", "CEIL", this, laf);
 
+    phaseModeBox.addItemList({ "COLOR PHASE", "ALIGN PHASE" }, 1);
+    phaseModeBox.setJustificationType(juce::Justification::centred);
+    phaseModeBox.setLookAndFeel(&laf);
+    addAndMakeVisible(phaseModeBox);
+    phaseModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "phase_mode", phaseModeBox);
+
     addAndMakeVisible(preDriveGroup); preDriveGroup.setText("PRE-DRIVE");
     addAndMakeVisible(stage1Group); stage1Group.setText("STAGE 1");
     addAndMakeVisible(stage2Group); stage2Group.setText("STAGE 2");
@@ -49,72 +54,83 @@ MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor(MultiOtoAudioProcesso
     s1AdvBtn.addListener(this); addAndMakeVisible(s1AdvBtn);
     s2AdvBtn.addListener(this); addAndMakeVisible(s2AdvBtn);
 
-    // Advancedを展開しても余裕のあるサイズに拡張
-    setSize(1080, 500);
+    // 全てのノブが縮小されないよう、ゆとりのあるサイズに設定
+    setSize(1000, 650);
 }
 
-MultiOtoAudioProcessorEditor::~MultiOtoAudioProcessorEditor() = default;
+MultiOtoAudioProcessorEditor::~MultiOtoAudioProcessorEditor() {
+    phaseModeBox.setLookAndFeel(nullptr);
+}
 
 void MultiOtoAudioProcessorEditor::buttonClicked(juce::Button* b) {
     if (b == &s1AdvBtn) s1AdvOpen = !s1AdvOpen;
     if (b == &s2AdvBtn) s2AdvOpen = !s2AdvOpen;
-    resized(); // ボタン押下でレイアウトを再計算
+    resized();
 }
 
 void MultiOtoAudioProcessorEditor::paint(juce::Graphics& g) {
-    g.fillAll(MultiOtoColors::Background);
+    // 高級感あふれるメタリックな濃い茶色のグラデーション
+    juce::ColourGradient grad(juce::Colour(0xFF352215), 0.0f, 0.0f,
+        juce::Colour(0xFF100A06), 0.0f, (float)getHeight(), false);
+    g.setGradientFill(grad);
+    g.fillAll();
 }
 
 void MultiOtoAudioProcessorEditor::resized() {
-    auto area = getLocalBounds().reduced(15);
-    int kw = 70; // ノブの基本サイズ（幅・高さ）
+    auto area = getLocalBounds().reduced(20);
+
+    // 【絶対基準】全てのノブはこのサイズを維持する
+    int kw = 70; // Knob Width
+    int kh = 85; // Knob Height
 
     // ==========================================================
-    // ROW 1: HEADER (Pre-Drive & Crossover)
+    // ROW 1: HEADER (高さ130pxを保証)
     // ==========================================================
-    auto headerRow = area.removeFromTop(85);
+    auto headerRow = area.removeFromTop(130);
 
-    // Pre-Drive Group
-    preDriveGroup.setBounds(headerRow.removeFromLeft(420));
-    // getBounds() を使って絶対座標を取得
-    auto preArea = preDriveGroup.getBounds().reduced(10).withTrimmedTop(20);
-
-    inGain.setBounds(preArea.removeFromLeft(kw));   preArea.removeFromLeft(5);
-    drive.setBounds(preArea.removeFromLeft(kw));    preArea.removeFromLeft(5);
-    oddBlend.setBounds(preArea.removeFromLeft(kw)); preArea.removeFromLeft(5);
-    evenBlend.setBounds(preArea.removeFromLeft(kw)); preArea.removeFromLeft(5);
+    preDriveGroup.setBounds(headerRow.removeFromLeft(430));
+    auto preArea = preDriveGroup.getBounds().reduced(15).withTrimmedTop(15);
+    inGain.setBounds(preArea.removeFromLeft(kw));    preArea.removeFromLeft(10);
+    drive.setBounds(preArea.removeFromLeft(kw));     preArea.removeFromLeft(10);
+    oddBlend.setBounds(preArea.removeFromLeft(kw));  preArea.removeFromLeft(10);
+    evenBlend.setBounds(preArea.removeFromLeft(kw)); preArea.removeFromLeft(10);
     totalOtt.setBounds(preArea.removeFromLeft(kw));
 
-    headerRow.removeFromLeft(20); // セクション間のスペーサー
+    headerRow.removeFromLeft(30);
 
-    // Crossover (グループ枠なしで配置)
-    xLow.setBounds(headerRow.removeFromLeft(kw));   headerRow.removeFromLeft(10);
-    xHigh.setBounds(headerRow.removeFromLeft(kw));
+    auto xArea = headerRow.removeFromLeft(160).withTrimmedTop(25);
+    xLow.setBounds(xArea.removeFromLeft(kw));  xArea.removeFromLeft(20);
+    xHigh.setBounds(xArea.removeFromLeft(kw));
 
-    area.removeFromTop(15); // ヘッダー下のスペーサー
+    area.removeFromTop(10); // 余白
 
     // ==========================================================
     // ROW 2 & 3: MAIN (Master on Right, Stages on Left)
     // ==========================================================
-    auto rightArea = area.removeFromRight(300); // マスターセクション用に右側を確保
-    area.removeFromRight(20); // ステージとマスター間のスペーサー
+    auto rightArea = area.removeFromRight(290);
+    area.removeFromRight(20);
 
     // --- Master Section ---
-    masterGroup.setBounds(rightArea);
-    auto mArea = masterGroup.getBounds().reduced(15).withTrimmedTop(25);
-    auto mRow1 = mArea.removeFromTop(75);
-    mArea.removeFromTop(10);
-    auto mRow2 = mArea.removeFromTop(75);
+    masterGroup.setBounds(rightArea.withHeight(280));
+    auto mArea = masterGroup.getBounds().reduced(15).withTrimmedTop(20);
 
-    postHPF.setBounds(mRow1.removeFromLeft(kw)); mRow1.removeFromLeft(15);
+    auto mRow1 = mArea.removeFromTop(kh);
+    mArea.removeFromTop(10);
+    auto mRow2 = mArea.removeFromTop(kh);
+    mArea.removeFromTop(20);
+    auto mRow3 = mArea.removeFromTop(24);
+
+    postHPF.setBounds(mRow1.removeFromLeft(kw)); mRow1.removeFromLeft(20);
     postLPF.setBounds(mRow1.removeFromLeft(kw));
 
-    dryWet.setBounds(mRow2.removeFromLeft(kw));    mRow2.removeFromLeft(15);
-    limitCeil.setBounds(mRow2.removeFromLeft(kw)); mRow2.removeFromLeft(15);
+    dryWet.setBounds(mRow2.removeFromLeft(kw));    mRow2.removeFromLeft(10);
+    limitCeil.setBounds(mRow2.removeFromLeft(kw)); mRow2.removeFromLeft(10);
     outGain.setBounds(mRow2.removeFromLeft(kw));
 
+    // Phase Mode Box を中央に配置
+    phaseModeBox.setBounds(mRow3.withSizeKeepingCentre(160, 24));
+
     // --- Stages Section ---
-    // ステージをレイアウトするためのラムダ関数
     auto layoutStage = [&](juce::GroupComponent& group, bool open,
         ArcKnob& gH, ArcKnob& gM, ArcKnob& gL,
         ArcKnob& dH, ArcKnob& dM, ArcKnob& dL, ArcKnob& time,
@@ -123,16 +139,14 @@ void MultiOtoAudioProcessorEditor::resized() {
         juce::Rectangle<int> bounds)
         {
             group.setBounds(bounds);
-            // ボタンをグループ枠の右上に配置
-            btn.setBounds(bounds.getRight() - 90, bounds.getY() + 2, 80, 18);
+            btn.setBounds(bounds.getRight() - 90, bounds.getY() + 8, 80, 20);
 
             auto sArea = bounds.reduced(15).withTrimmedTop(20);
 
-            // Basic (Gain & Depth)
             auto basicArea = sArea.removeFromLeft(230);
-            auto bRow1 = basicArea.removeFromTop(70);
-            basicArea.removeFromTop(5);
-            auto bRow2 = basicArea.removeFromTop(70);
+            auto bRow1 = basicArea.removeFromTop(kh); // 高さ85を完全確保
+            basicArea.removeFromTop(10);
+            auto bRow2 = basicArea.removeFromTop(kh); // 高さ85を完全確保
 
             gL.setBounds(bRow1.removeFromLeft(kw)); bRow1.removeFromLeft(10);
             gM.setBounds(bRow1.removeFromLeft(kw)); bRow1.removeFromLeft(10);
@@ -142,24 +156,21 @@ void MultiOtoAudioProcessorEditor::resized() {
             dM.setBounds(bRow2.removeFromLeft(kw)); bRow2.removeFromLeft(10);
             dH.setBounds(bRow2.removeFromLeft(kw));
 
-            sArea.removeFromLeft(15);
+            sArea.removeFromLeft(20);
 
-            // Macro Time (中央に配置)
             auto timeArea = sArea.removeFromLeft(kw);
-            time.setBounds(timeArea.withSizeKeepingCentre(kw, kw));
+            time.setBounds(timeArea.withSizeKeepingCentre(kw, kh));
 
-            sArea.removeFromLeft(30); // Advancedセクションへのスペーサー
+            sArea.removeFromLeft(30);
 
-            // Advancedの表示制御
             aL.setVisible(open); aM.setVisible(open); aH.setVisible(open);
             rL.setVisible(open); rM.setVisible(open); rH.setVisible(open);
 
-            // Advanced (Attack & Release)
             if (open) {
                 auto advArea = sArea.removeFromLeft(230);
-                auto aRow1 = advArea.removeFromTop(70);
-                advArea.removeFromTop(5);
-                auto aRow2 = advArea.removeFromTop(70);
+                auto aRow1 = advArea.removeFromTop(kh); // 高さ85を完全確保
+                advArea.removeFromTop(10);
+                auto aRow2 = advArea.removeFromTop(kh); // 高さ85を完全確保
 
                 aL.setBounds(aRow1.removeFromLeft(kw)); aRow1.removeFromLeft(10);
                 aM.setBounds(aRow1.removeFromLeft(kw)); aRow1.removeFromLeft(10);
@@ -171,9 +182,10 @@ void MultiOtoAudioProcessorEditor::resized() {
             }
         };
 
-    auto stage1Bounds = area.removeFromTop(180);
+    // 各ステージに「230px」の高さを与えることで、ノブの縮小を物理的に防ぐ
+    auto stage1Bounds = area.removeFromTop(230);
     area.removeFromTop(10);
-    auto stage2Bounds = area.removeFromTop(180);
+    auto stage2Bounds = area.removeFromTop(230);
 
     layoutStage(stage1Group, s1AdvOpen, s1GainH, s1GainM, s1GainL, s1DepthH, s1DepthM, s1DepthL, s1Time, s1AtkH, s1AtkM, s1AtkL, s1RelH, s1RelM, s1RelL, s1AdvBtn, stage1Bounds);
     layoutStage(stage2Group, s2AdvOpen, s2GainH, s2GainM, s2GainL, s2DepthH, s2DepthM, s2DepthL, s2Time, s2AtkH, s2AtkM, s2AtkL, s2RelH, s2RelM, s2RelL, s2AdvBtn, stage2Bounds);
