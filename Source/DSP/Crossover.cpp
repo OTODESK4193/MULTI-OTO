@@ -1,22 +1,21 @@
 #include "Crossover.h"
 
 Crossover::Crossover() {
-    auto setType = [](juce::dsp::LinkwitzRileyFilter<float>& f, juce::dsp::LinkwitzRileyFilterType type, float freq) {
+    auto setType = [](juce::dsp::LinkwitzRileyFilter<float>& f, juce::dsp::LinkwitzRileyFilterType type) {
         f.setType(type);
-        f.setCutoffFrequency(freq);
         };
 
-    // 第1スプリット：88 Hz (Low と Mid/High の分離)
-    setType(lp1L, juce::dsp::LinkwitzRileyFilterType::lowpass, 88.0f);
-    setType(hp1L, juce::dsp::LinkwitzRileyFilterType::highpass, 88.0f);
-    setType(lp1R, juce::dsp::LinkwitzRileyFilterType::lowpass, 88.0f);
-    setType(hp1R, juce::dsp::LinkwitzRileyFilterType::highpass, 88.0f);
+    setType(lp1L, juce::dsp::LinkwitzRileyFilterType::lowpass);
+    setType(hp1L, juce::dsp::LinkwitzRileyFilterType::highpass);
+    setType(lp1R, juce::dsp::LinkwitzRileyFilterType::lowpass);
+    setType(hp1R, juce::dsp::LinkwitzRileyFilterType::highpass);
 
-    // 第2スプリット：2500 Hz (Mid と High の分離)
-    setType(lp2L, juce::dsp::LinkwitzRileyFilterType::lowpass, 2500.0f);
-    setType(hp2L, juce::dsp::LinkwitzRileyFilterType::highpass, 2500.0f);
-    setType(lp2R, juce::dsp::LinkwitzRileyFilterType::lowpass, 2500.0f);
-    setType(hp2R, juce::dsp::LinkwitzRileyFilterType::highpass, 2500.0f);
+    setType(lp2L, juce::dsp::LinkwitzRileyFilterType::lowpass);
+    setType(hp2L, juce::dsp::LinkwitzRileyFilterType::highpass);
+    setType(lp2R, juce::dsp::LinkwitzRileyFilterType::lowpass);
+    setType(hp2R, juce::dsp::LinkwitzRileyFilterType::highpass);
+
+    setFrequencies(88.0f, 2500.0f);
 }
 
 void Crossover::prepare(const juce::dsp::ProcessSpec& spec) {
@@ -29,16 +28,21 @@ void Crossover::reset() {
     lp1R.reset(); hp1R.reset(); lp2R.reset(); hp2R.reset();
 }
 
+void Crossover::setFrequencies(float lowFreq, float highFreq) {
+    lp1L.setCutoffFrequency(lowFreq); hp1L.setCutoffFrequency(lowFreq);
+    lp1R.setCutoffFrequency(lowFreq); hp1R.setCutoffFrequency(lowFreq);
+
+    lp2L.setCutoffFrequency(highFreq); hp2L.setCutoffFrequency(highFreq);
+    lp2R.setCutoffFrequency(highFreq); hp2R.setCutoffFrequency(highFreq);
+}
+
 void Crossover::process(float inL, float inR, float& lowL, float& lowR, float& midL, float& midR, float& highL, float& highR) {
-    // 1段目: Low成分を抽出
     lowL = lp1L.processSample(0, inL);
     lowR = lp1R.processSample(1, inR);
 
-    // 1段目: 残りの帯域（Mid + High）を抽出
     float remL = hp1L.processSample(0, inL);
     float remR = hp1R.processSample(1, inR);
 
-    // 2段目: 残りからMidとHighを分離
     midL = lp2L.processSample(0, remL);
     midR = lp2R.processSample(1, remR);
 

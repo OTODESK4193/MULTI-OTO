@@ -92,6 +92,55 @@ bool MultiOtoAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) 
 
 void MultiOtoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) {
     juce::ScopedNoDenormals noDenormals;
+
+    // --- UIのノブから全パラメータを収集 ---
+    EngineParams p;
+    p.total_ott = static_cast<int>(apvts.getRawParameterValue("total_ott")->load());
+    p.inGain = apvts.getRawParameterValue("in_gain")->load();
+    p.drive = apvts.getRawParameterValue("drive")->load();
+    p.odd = apvts.getRawParameterValue("odd_blend")->load();
+    p.even = apvts.getRawParameterValue("even_blend")->load();
+
+    p.xLow = apvts.getRawParameterValue("xover_low")->load();
+    p.xHigh = apvts.getRawParameterValue("xover_high")->load();
+
+    p.s1_gain[0] = apvts.getRawParameterValue("s1_gain_l")->load();
+    p.s1_gain[1] = apvts.getRawParameterValue("s1_gain_m")->load();
+    p.s1_gain[2] = apvts.getRawParameterValue("s1_gain_h")->load();
+    p.s1_depth[0] = apvts.getRawParameterValue("s1_depth_l")->load();
+    p.s1_depth[1] = apvts.getRawParameterValue("s1_depth_m")->load();
+    p.s1_depth[2] = apvts.getRawParameterValue("s1_depth_h")->load();
+    p.s1_time = apvts.getRawParameterValue("s1_time")->load();
+    p.s1_atk[0] = apvts.getRawParameterValue("s1_atk_l")->load();
+    p.s1_atk[1] = apvts.getRawParameterValue("s1_atk_m")->load();
+    p.s1_atk[2] = apvts.getRawParameterValue("s1_atk_h")->load();
+    p.s1_rel[0] = apvts.getRawParameterValue("s1_rel_l")->load();
+    p.s1_rel[1] = apvts.getRawParameterValue("s1_rel_m")->load();
+    p.s1_rel[2] = apvts.getRawParameterValue("s1_rel_h")->load();
+
+    p.s2_gain[0] = apvts.getRawParameterValue("s2_gain_l")->load();
+    p.s2_gain[1] = apvts.getRawParameterValue("s2_gain_m")->load();
+    p.s2_gain[2] = apvts.getRawParameterValue("s2_gain_h")->load();
+    p.s2_depth[0] = apvts.getRawParameterValue("s2_depth_l")->load();
+    p.s2_depth[1] = apvts.getRawParameterValue("s2_depth_m")->load();
+    p.s2_depth[2] = apvts.getRawParameterValue("s2_depth_h")->load();
+    p.s2_time = apvts.getRawParameterValue("s2_time")->load();
+    p.s2_atk[0] = apvts.getRawParameterValue("s2_atk_l")->load();
+    p.s2_atk[1] = apvts.getRawParameterValue("s2_atk_m")->load();
+    p.s2_atk[2] = apvts.getRawParameterValue("s2_atk_h")->load();
+    p.s2_rel[0] = apvts.getRawParameterValue("s2_rel_l")->load();
+    p.s2_rel[1] = apvts.getRawParameterValue("s2_rel_m")->load();
+    p.s2_rel[2] = apvts.getRawParameterValue("s2_rel_h")->load();
+
+    p.post_hpf = apvts.getRawParameterValue("post_hpf")->load();
+    p.post_lpf = apvts.getRawParameterValue("post_lpf")->load();
+    p.dryWet = apvts.getRawParameterValue("dry_wet")->load();
+    p.outGain = apvts.getRawParameterValue("out_gain")->load();
+    p.limitCeil = apvts.getRawParameterValue("limit_ceil")->load();
+    p.phase_mode = static_cast<int>(apvts.getRawParameterValue("phase_mode")->load());
+
+    // エンジンに渡して処理
+    engineCore->updateParameters(p);
     engineCore->process(buffer);
 }
 

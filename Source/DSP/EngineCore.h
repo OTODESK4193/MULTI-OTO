@@ -3,27 +3,41 @@
 #include <vector>
 #include "Crossover.h"
 #include "DynamicsNode.h"
+#include "Saturator.h"
+
+struct EngineParams {
+    float inGain, drive, odd, even;
+    float xLow, xHigh;
+    float s1_gain[3], s1_depth[3], s1_time, s1_atk[3], s1_rel[3];
+    float s2_gain[3], s2_depth[3], s2_time, s2_atk[3], s2_rel[3];
+    float post_hpf, post_lpf;
+    float dryWet, outGain, limitCeil;
+    int total_ott, phase_mode;
+};
 
 class EngineCore {
 public:
     EngineCore();
     void prepare(double sampleRate, int samplesPerBlock);
+    void updateParameters(const EngineParams& p);
     void process(juce::AudioBuffer<float>& buffer);
     void reset();
 
 private:
-    static constexpr int NUM_NODES = 2; // 現在はプロトタイプ2段
+    static constexpr int NUM_NODES = 2;
+    EngineParams currentParams;
 
     Crossover crossover;
     std::vector<DynamicsNode> nodes;
     std::vector<juce::dsp::SIMDRegister<float>> simdBuffer;
 
-    // Safety Limiter用の状態変数
+    ADAASaturator satL, satR;
+
     float limiterEnvL = 0.0f;
     float limiterEnvR = 0.0f;
     float limiterReleaseCoef = 0.0f;
-    const float LIMITER_THRESHOLD = 0.988f; // 約 -0.1 dBFS (絶対超えない壁)
+    float currentLimitThreshold = 0.988f;
 
     static_assert(juce::dsp::SIMDRegister<float>::size() == 8,
-        "CRITICAL: MULTI-OTO requires AVX2 instructions. juce::dsp::SIMDRegister size must be 8.");
+        "CRITICAL: MULTI-OTO requires AVX2 instructions.");
 };
