@@ -28,8 +28,14 @@ private:
     EngineParams currentParams;
 
     Crossover crossover;
+    Crossover dummyCrossover; // 位相補正用のダミー
+
+    juce::dsp::StateVariableTPTFilter<float> postHpfL, postHpfR;
+    juce::dsp::StateVariableTPTFilter<float> postLpfL, postLpfR;
+
     std::vector<DynamicsNode> nodes;
     std::vector<juce::dsp::SIMDRegister<float>> simdBuffer;
+    juce::AudioBuffer<float> dryBuffer; // Dry音保持用
 
     ADAASaturator satL, satR;
 
