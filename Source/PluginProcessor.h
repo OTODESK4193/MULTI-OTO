@@ -2,7 +2,6 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <memory>
 
-// 前方宣言
 class EngineCore;
 
 class MultiOtoAudioProcessor : public juce::AudioProcessor {
@@ -27,16 +26,18 @@ public:
 
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
-    void setCurrentProgram(int index) override {}
-    const juce::String getProgramName(int index) override { return {}; }
-    void changeProgramName(int index, const juce::String& newName) override {}
+    void setCurrentProgram(int /*index*/) override {}
+    const juce::String getProgramName(int /*index*/) override { return {}; }
+    void changeProgramName(int /*index*/, const juce::String& /*newName*/) override {}
 
-    void getStateInformation(juce::MemoryBlock& destData) override {}
-    void setStateInformation(const void* data, int sizeInBytes) override {}
+    void getStateInformation(juce::MemoryBlock& destData) override;
+    void setStateInformation(const void* data, int sizeInBytes) override;
+
+    juce::AudioProcessorValueTreeState apvts;
 
 private:
-    // DSPエンジンの中核
     std::unique_ptr<EngineCore> engineCore;
+    juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MultiOtoAudioProcessor)
 };
