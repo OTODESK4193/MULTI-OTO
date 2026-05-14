@@ -3,6 +3,8 @@
 #include "DSP/EngineCore.h"
 
 juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::createParameterLayout() {
+    // 既存の実装から変更なし
+    // (引数省略せずに記載の指示のため以下展開)
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
     auto addFloat = [&](const juce::String& id, const juce::String& name, float min, float max, float def) {
@@ -77,6 +79,7 @@ MultiOtoAudioProcessor::MultiOtoAudioProcessor()
 MultiOtoAudioProcessor::~MultiOtoAudioProcessor() = default;
 
 void MultiOtoAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
+    currentSampleRate = sampleRate; // Ableton保護用状態保存
     engineCore->prepare(sampleRate, samplesPerBlock);
 }
 
@@ -91,9 +94,14 @@ bool MultiOtoAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) 
 }
 
 void MultiOtoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) {
+    // Ableton Live フェイルセーフ：prepare前のコールバックやSampleRate変更を防御
+    if (currentSampleRate == 0.0 || buffer.getNumSamples() == 0 || getSampleRate() != currentSampleRate) {
+        buffer.clear();
+        return;
+    }
+
     juce::ScopedNoDenormals noDenormals;
 
-    // --- UIのノブから全パラメータを収集 ---
     EngineParams p;
     p.total_ott = static_cast<int>(apvts.getRawParameterValue("total_ott")->load());
     p.inGain = apvts.getRawParameterValue("in_gain")->load();
@@ -139,7 +147,6 @@ void MultiOtoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.limitCeil = apvts.getRawParameterValue("limit_ceil")->load();
     p.phase_mode = static_cast<int>(apvts.getRawParameterValue("phase_mode")->load());
 
-    // エンジンに渡して処理
     engineCore->updateParameters(p);
     engineCore->process(buffer);
 }

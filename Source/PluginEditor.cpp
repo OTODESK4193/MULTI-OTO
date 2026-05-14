@@ -54,12 +54,13 @@ MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor(MultiOtoAudioProcesso
     s1AdvBtn.addListener(this); addAndMakeVisible(s1AdvBtn);
     s2AdvBtn.addListener(this); addAndMakeVisible(s2AdvBtn);
 
-    // 全てのノブが縮小されないよう、ゆとりのあるサイズに設定
     setSize(1000, 650);
 }
 
 MultiOtoAudioProcessorEditor::~MultiOtoAudioProcessorEditor() {
     phaseModeBox.setLookAndFeel(nullptr);
+    // Ableton Live 11 VST3 クラッシュ防御策
+    removeAllChildren();
 }
 
 void MultiOtoAudioProcessorEditor::buttonClicked(juce::Button* b) {
@@ -69,7 +70,6 @@ void MultiOtoAudioProcessorEditor::buttonClicked(juce::Button* b) {
 }
 
 void MultiOtoAudioProcessorEditor::paint(juce::Graphics& g) {
-    // 高級感あふれるメタリックな濃い茶色のグラデーション
     juce::ColourGradient grad(
         juce::Colour(0xFF170801), 0.0f, 0.0f,
         juce::Colour(0xFF1c0901), 0.0f, (float)getHeight(), false);
@@ -80,13 +80,9 @@ void MultiOtoAudioProcessorEditor::paint(juce::Graphics& g) {
 void MultiOtoAudioProcessorEditor::resized() {
     auto area = getLocalBounds().reduced(20);
 
-    // 【絶対基準】全てのノブはこのサイズを維持する
-    int kw = 70; // Knob Width
-    int kh = 85; // Knob Height
+    int kw = 70;
+    int kh = 85;
 
-    // ==========================================================
-    // ROW 1: HEADER (高さ130pxを保証)
-    // ==========================================================
     auto headerRow = area.removeFromTop(130);
 
     preDriveGroup.setBounds(headerRow.removeFromLeft(430));
@@ -103,15 +99,11 @@ void MultiOtoAudioProcessorEditor::resized() {
     xLow.setBounds(xArea.removeFromLeft(kw));  xArea.removeFromLeft(20);
     xHigh.setBounds(xArea.removeFromLeft(kw));
 
-    area.removeFromTop(10); // 余白
+    area.removeFromTop(10);
 
-    // ==========================================================
-    // ROW 2 & 3: MAIN (Master on Right, Stages on Left)
-    // ==========================================================
     auto rightArea = area.removeFromRight(290);
     area.removeFromRight(20);
 
-    // --- Master Section ---
     masterGroup.setBounds(rightArea.withHeight(280));
     auto mArea = masterGroup.getBounds().reduced(15).withTrimmedTop(20);
 
@@ -128,10 +120,8 @@ void MultiOtoAudioProcessorEditor::resized() {
     limitCeil.setBounds(mRow2.removeFromLeft(kw)); mRow2.removeFromLeft(10);
     outGain.setBounds(mRow2.removeFromLeft(kw));
 
-    // Phase Mode Box を中央に配置
     phaseModeBox.setBounds(mRow3.withSizeKeepingCentre(160, 24));
 
-    // --- Stages Section ---
     auto layoutStage = [&](juce::GroupComponent& group, bool open,
         ArcKnob& gH, ArcKnob& gM, ArcKnob& gL,
         ArcKnob& dH, ArcKnob& dM, ArcKnob& dL, ArcKnob& time,
@@ -145,9 +135,9 @@ void MultiOtoAudioProcessorEditor::resized() {
             auto sArea = bounds.reduced(15).withTrimmedTop(20);
 
             auto basicArea = sArea.removeFromLeft(230);
-            auto bRow1 = basicArea.removeFromTop(kh); // 高さ85を完全確保
+            auto bRow1 = basicArea.removeFromTop(kh);
             basicArea.removeFromTop(10);
-            auto bRow2 = basicArea.removeFromTop(kh); // 高さ85を完全確保
+            auto bRow2 = basicArea.removeFromTop(kh);
 
             gL.setBounds(bRow1.removeFromLeft(kw)); bRow1.removeFromLeft(10);
             gM.setBounds(bRow1.removeFromLeft(kw)); bRow1.removeFromLeft(10);
@@ -169,9 +159,9 @@ void MultiOtoAudioProcessorEditor::resized() {
 
             if (open) {
                 auto advArea = sArea.removeFromLeft(230);
-                auto aRow1 = advArea.removeFromTop(kh); // 高さ85を完全確保
+                auto aRow1 = advArea.removeFromTop(kh);
                 advArea.removeFromTop(10);
-                auto aRow2 = advArea.removeFromTop(kh); // 高さ85を完全確保
+                auto aRow2 = advArea.removeFromTop(kh);
 
                 aL.setBounds(aRow1.removeFromLeft(kw)); aRow1.removeFromLeft(10);
                 aM.setBounds(aRow1.removeFromLeft(kw)); aRow1.removeFromLeft(10);
@@ -183,7 +173,6 @@ void MultiOtoAudioProcessorEditor::resized() {
             }
         };
 
-    // 各ステージに「230px」の高さを与えることで、ノブの縮小を物理的に防ぐ
     auto stage1Bounds = area.removeFromTop(230);
     area.removeFromTop(10);
     auto stage2Bounds = area.removeFromTop(230);

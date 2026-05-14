@@ -53,7 +53,7 @@ target_sources(MultiOto PRIVATE
     Source/DSP/Crossover.cpp
     Source/DSP/DynamicsNode.h
     Source/DSP/DynamicsNode.cpp
- "Source/DSP/FastMath.h" "Source/DSP/Saturator.h")
+ "Source/DSP/FastMath.h" "Source/DSP/Saturator.h" "Source/DSP/ADAASaturator.h")
 
 # ============================================================================
 # インクルードパス

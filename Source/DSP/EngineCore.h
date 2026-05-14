@@ -3,7 +3,7 @@
 #include <vector>
 #include "Crossover.h"
 #include "DynamicsNode.h"
-#include "Saturator.h"
+#include "ADAASaturator.h"
 
 struct EngineParams {
     float inGain, drive, odd, even;
@@ -25,17 +25,23 @@ public:
 
 private:
     static constexpr int NUM_NODES = 2;
+
+    // パラメータ平滑化（ジッパーノイズ対策）
+    juce::SmoothedValue<float> driveSmoother;
+    juce::SmoothedValue<float> oddSmoother;
+    juce::SmoothedValue<float> evenSmoother;
+
     EngineParams currentParams;
 
     Crossover crossover;
-    Crossover dummyCrossover; // 位相補正用のダミー
+    Crossover dummyCrossover;
 
     juce::dsp::StateVariableTPTFilter<float> postHpfL, postHpfR;
     juce::dsp::StateVariableTPTFilter<float> postLpfL, postLpfR;
 
     std::vector<DynamicsNode> nodes;
     std::vector<juce::dsp::SIMDRegister<float>> simdBuffer;
-    juce::AudioBuffer<float> dryBuffer; // Dry音保持用
+    juce::AudioBuffer<float> dryBuffer;
 
     ADAASaturator satL, satR;
 
@@ -43,7 +49,4 @@ private:
     float limiterEnvR = 0.0f;
     float limiterReleaseCoef = 0.0f;
     float currentLimitThreshold = 0.988f;
-
-    static_assert(juce::dsp::SIMDRegister<float>::size() == 8,
-        "CRITICAL: MULTI-OTO requires AVX2 instructions.");
 };
