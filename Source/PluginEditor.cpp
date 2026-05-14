@@ -3,6 +3,10 @@
 
 MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor(MultiOtoAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p) {
+
+    // Direct2D パフォーマンス最適化
+    setOpaque(true);
+
     auto& apvts = audioProcessor.apvts;
 
     totalOtt.build(apvts, "total_ott", "COUNT", this, laf);
@@ -59,8 +63,7 @@ MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor(MultiOtoAudioProcesso
 
 MultiOtoAudioProcessorEditor::~MultiOtoAudioProcessorEditor() {
     phaseModeBox.setLookAndFeel(nullptr);
-    // Ableton Live 11 VST3 クラッシュ防御策
-    removeAllChildren();
+    removeAllChildren(); // Ableton Live VST3 Teardown Fail-safe
 }
 
 void MultiOtoAudioProcessorEditor::buttonClicked(juce::Button* b) {

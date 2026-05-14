@@ -4,7 +4,6 @@
 
 EngineCore::EngineCore() {
     nodes.resize(NUM_NODES);
-
     postHpfL.setType(juce::dsp::StateVariableTPTFilterType::highpass);
     postHpfR.setType(juce::dsp::StateVariableTPTFilterType::highpass);
     postLpfL.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
@@ -22,14 +21,17 @@ void EngineCore::prepare(double sampleRate, int samplesPerBlock) {
     postLpfL.prepare(spec); postLpfR.prepare(spec);
 
     simdBuffer.resize(static_cast<size_t>(samplesPerBlock));
-    dryBuffer.setSize(2, samplesPerBlock, false, true, true); // 明示的ゼロクリア
+    // Ableton Live 対策: バッファの確実なゼロクリア
+    dryBuffer.setSize(2, samplesPerBlock, false, true, true);
 
     limiterReleaseCoef = std::exp(-1.0f / (0.050f * static_cast<float>(sampleRate)));
 
-    // スムーザーの初期化
-    driveSmoother.reset(sampleRate, 0.05); // 50ms smooth
+    // スムーザー初期化 (50ms)
+    driveSmoother.reset(sampleRate, 0.05);
     oddSmoother.reset(sampleRate, 0.05);
     evenSmoother.reset(sampleRate, 0.05);
+    inGainSmoother.reset(sampleRate, 0.05);
+    outGainSmoother.reset(sampleRate, 0.05);
 
     reset();
 }
@@ -50,10 +52,11 @@ void EngineCore::updateParameters(const EngineParams& p) {
     driveSmoother.setTargetValue(p.drive);
     oddSmoother.setTargetValue(p.odd);
     evenSmoother.setTargetValue(p.even);
+    inGainSmoother.setTargetValue(FastMath::fast_exp2(p.inGain * 0.16609f));
+    outGainSmoother.setTargetValue(FastMath::fast_exp2(p.outGain * 0.16609f));
 
     crossover.setFrequencies(p.xLow, p.xHigh);
     dummyCrossover.setFrequencies(p.xLow, p.xHigh);
-
     postHpfL.setCutoffFrequency(p.post_hpf); postHpfR.setCutoffFrequency(p.post_hpf);
     postLpfL.setCutoffFrequency(p.post_lpf); postLpfR.setCutoffFrequency(p.post_lpf);
 
@@ -69,44 +72,31 @@ void EngineCore::process(juce::AudioBuffer<float>& buffer) {
     float* right = buffer.getWritePointer(1);
     float* dryLeft = dryBuffer.getWritePointer(0);
     float* dryRight = dryBuffer.getWritePointer(1);
-
-    float inGainLin = FastMath::fast_exp2(currentParams.inGain * 0.16609f);
-    float outGainLin = FastMath::fast_exp2(currentParams.outGain * 0.16609f);
     float mix = currentParams.dryWet * 0.01f;
 
-    // =========================================================================
-    // STEP 1: PURE DRY BUFFERING (Phase Mode Alignment)
-    // =========================================================================
-    // Input Gain を適用する *前* に、純粋な原音を Dry バッファに退避・位相補正を行う。
+    // --- STEP 1: PURE DRY BUFFERING ---
     for (int i = 0; i < numSamples; ++i) {
         float l = left[i];
         float r = right[i];
-
-        float matchedL = l;
-        float matchedR = r;
-
         if (currentParams.phase_mode == 1) {
             float d_lL, d_lR, d_mL, d_mR, d_hL, d_hR;
-            // Phase Mode Align: フィルターネットワークの群遅延のみをDry音に付加する
             dummyCrossover.process(l, r, d_lL, d_lR, d_mL, d_mR, d_hL, d_hR);
-            matchedL = d_lL + d_mL + d_hL;
-            matchedR = d_lR + d_mR + d_hR;
+            dryLeft[i] = d_lL + d_mL + d_hL;
+            dryRight[i] = d_lR + d_mR + d_hR;
         }
-        dryLeft[i] = matchedL;
-        dryRight[i] = matchedR;
+        else {
+            dryLeft[i] = l;
+            dryRight[i] = r;
+        }
     }
 
-    // =========================================================================
-    // STEP 2: INPUT GAIN STAGE
-    // =========================================================================
-    // 以降の処理（Wetパス）のために、メインバッファに Input Gain を適用する。
-    // SIMD最適化された一括乗算を利用。
-    juce::FloatVectorOperations::multiply(left, inGainLin, numSamples);
-    juce::FloatVectorOperations::multiply(right, inGainLin, numSamples);
+    // --- STEP 2: INPUT GAIN ---
+    float inGainTgt = inGainSmoother.getNextValue();
+    inGainSmoother.skip(numSamples - 1);
+    juce::FloatVectorOperations::multiply(left, inGainTgt, numSamples);
+    juce::FloatVectorOperations::multiply(right, inGainTgt, numSamples);
 
-    // =========================================================================
-    // STEP 3: ADAA SATURATION (Wet Path Only)
-    // =========================================================================
+    // --- STEP 3: ADAA SATURATION ---
     float driveTgt = driveSmoother.getNextValue();
     float oddTgt = oddSmoother.getNextValue();
     float evenTgt = evenSmoother.getNextValue();
@@ -119,47 +109,34 @@ void EngineCore::process(juce::AudioBuffer<float>& buffer) {
         satR.processBlock_AVX2(right, numSamples, driveTgt, oddTgt, evenTgt);
     }
 
-    // =========================================================================
-    // STEP 4: CROSSOVER & MULTI-STAGE OTT
-    // =========================================================================
+    // --- STEP 4: CROSSOVER & OTT ---
     for (int i = 0; i < numSamples; ++i) {
         float lL, lR, mL, mR, hL, hR;
-        // サチュレーション通過後の信号(left/right)を帯域分割
         crossover.process(left[i], right[i], lL, lR, mL, mR, hL, hR);
-
-        // SIMDレジスタ(256-bit)へのパッキング (SoA構造)
         alignas(32) float raw[8] = { lL, lR, mL, mR, hL, hR, 0.0f, 0.0f };
         simdBuffer[static_cast<size_t>(i)] = juce::dsp::SIMDRegister<float>::fromRawArray(raw);
     }
-
-    // 各DynamicsNode（OTTステージ）の実行
     for (auto& node : nodes) {
         node.process(simdBuffer.data(), numSamples);
     }
 
-    // =========================================================================
-    // STEP 5: RE-SYNTHESIS, MIX & MASTER
-    // =========================================================================
+    // --- STEP 5: RESYNTHESIS & MIX ---
+    float outGainTgt = outGainSmoother.getNextValue();
+    outGainSmoother.skip(numSamples - 1);
+
     for (int i = 0; i < numSamples; ++i) {
         alignas(32) float raw[8];
         simdBuffer[static_cast<size_t>(i)].copyToRawArray(raw);
 
-        // 帯域の再合成 (Wetパス)
         float wetL = raw[0] + raw[2] + raw[4];
         float wetR = raw[1] + raw[3] + raw[5];
 
-        // Post フィルターの適用
         wetL = postLpfL.processSample(0, postHpfL.processSample(0, wetL));
         wetR = postLpfR.processSample(1, postHpfR.processSample(1, wetR));
 
-        // Dry / Wet ミックス (STEP 1で退避した純粋なDry音を使用)
-        float outL = dryLeft[i] + (wetL - dryLeft[i]) * mix;
-        float outR = dryRight[i] + (wetR - dryRight[i]) * mix;
+        float outL = (dryLeft[i] + (wetL - dryLeft[i]) * mix) * outGainTgt;
+        float outR = (dryRight[i] + (wetR - dryRight[i]) * mix) * outGainTgt;
 
-        outL *= outGainLin;
-        outR *= outGainLin;
-
-        // Safety Limiter (エンベロープベースのクリッパー)
         float absL = std::abs(outL);
         float absR = std::abs(outR);
         limiterEnvL = (absL > limiterEnvL) ? absL : limiterEnvL * limiterReleaseCoef;

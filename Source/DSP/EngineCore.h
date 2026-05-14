@@ -18,6 +18,8 @@ struct EngineParams {
 class EngineCore {
 public:
     EngineCore();
+    ~EngineCore() = default;
+
     void prepare(double sampleRate, int samplesPerBlock);
     void updateParameters(const EngineParams& p);
     void process(juce::AudioBuffer<float>& buffer);
@@ -30,12 +32,15 @@ private:
     juce::SmoothedValue<float> driveSmoother;
     juce::SmoothedValue<float> oddSmoother;
     juce::SmoothedValue<float> evenSmoother;
+    juce::SmoothedValue<float> inGainSmoother;
+    juce::SmoothedValue<float> outGainSmoother;
 
     EngineParams currentParams;
 
     Crossover crossover;
     Crossover dummyCrossover;
 
+    // ZDF/TPT フィルター (レイテンシーなし・安定性保証)
     juce::dsp::StateVariableTPTFilter<float> postHpfL, postHpfR;
     juce::dsp::StateVariableTPTFilter<float> postLpfL, postLpfR;
 
