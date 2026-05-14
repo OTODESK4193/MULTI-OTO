@@ -4,6 +4,11 @@
 
 EngineCore::EngineCore() {
     nodes.resize(NUM_NODES);
+
+    // プレ・フィルターを1次ローパスとして初期化
+    preLpfL.setType(juce::dsp::FirstOrderTPTFilterType::lowpass);
+    preLpfR.setType(juce::dsp::FirstOrderTPTFilterType::lowpass);
+
     postHpfL.setType(juce::dsp::StateVariableTPTFilterType::highpass);
     postHpfR.setType(juce::dsp::StateVariableTPTFilterType::highpass);
     postLpfL.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
@@ -11,18 +16,27 @@ EngineCore::EngineCore() {
 }
 
 void EngineCore::prepare(double sampleRate, int samplesPerBlock) {
+    currentSampleRate = sampleRate;
     juce::dsp::ProcessSpec spec{ sampleRate, static_cast<juce::uint32>(samplesPerBlock), 2 };
 
     crossover.prepare(spec);
     dummyCrossover.prepare(spec);
     for (auto& node : nodes) node.prepare(sampleRate, samplesPerBlock);
 
+    // プレ・フィルターの初期化（カットオフは超高域の折り返し防止に最適化された 15kHz）
+    preLpfL.prepare(spec);
+    preLpfR.prepare(spec);
+    preLpfL.setCutoffFrequency(15000.0f);
+    preLpfR.setCutoffFrequency(15000.0f);
+
     postHpfL.prepare(spec); postHpfR.prepare(spec);
     postLpfL.prepare(spec); postLpfR.prepare(spec);
 
     simdBuffer.resize(static_cast<size_t>(samplesPerBlock));
+
     // Ableton Live 対策: バッファの確実なゼロクリア
     dryBuffer.setSize(2, samplesPerBlock, false, true, true);
+    dryBuffer.clear();
 
     limiterReleaseCoef = std::exp(-1.0f / (0.050f * static_cast<float>(sampleRate)));
 
@@ -34,13 +48,19 @@ void EngineCore::prepare(double sampleRate, int samplesPerBlock) {
     outGainSmoother.reset(sampleRate, 0.05);
 
     reset();
+
+    // 準備完了フラグを立てる (スレッドセーフ)
+    isPrepared.store(true, std::memory_order_release);
 }
 
 void EngineCore::reset() {
     crossover.reset();
     dummyCrossover.reset();
     for (auto& node : nodes) node.reset();
+
+    preLpfL.reset(); preLpfR.reset();
     satL.reset(); satR.reset();
+
     postHpfL.reset(); postHpfR.reset();
     postLpfL.reset(); postLpfR.reset();
     limiterEnvL = 0.0f; limiterEnvR = 0.0f;
@@ -67,9 +87,21 @@ void EngineCore::updateParameters(const EngineParams& p) {
 }
 
 void EngineCore::process(juce::AudioBuffer<float>& buffer) {
+    // デノーマル値によるCPUスパイク防止
+    juce::ScopedNoDenormals noDenormals;
+
+    // Ableton Live 特有のフェイルセーフ: prepare前に異なるサンプルレートで呼ばれる不具合の防御
+    if (!isPrepared.load(std::memory_order_acquire)) {
+        buffer.clear();
+        return;
+    }
+
     const int numSamples = buffer.getNumSamples();
     float* left = buffer.getWritePointer(0);
     float* right = buffer.getWritePointer(1);
+
+    // 干渉を防ぐため毎ブロッククリアを確実に行う
+    dryBuffer.clear();
     float* dryLeft = dryBuffer.getWritePointer(0);
     float* dryRight = dryBuffer.getWritePointer(1);
     float mix = currentParams.dryWet * 0.01f;
@@ -96,7 +128,7 @@ void EngineCore::process(juce::AudioBuffer<float>& buffer) {
     juce::FloatVectorOperations::multiply(left, inGainTgt, numSamples);
     juce::FloatVectorOperations::multiply(right, inGainTgt, numSamples);
 
-    // --- STEP 3: ADAA SATURATION ---
+    // --- STEP 3: PRE-FILTERING & ADAA SATURATION ---
     float driveTgt = driveSmoother.getNextValue();
     float oddTgt = oddSmoother.getNextValue();
     float evenTgt = evenSmoother.getNextValue();
@@ -105,6 +137,12 @@ void EngineCore::process(juce::AudioBuffer<float>& buffer) {
     evenSmoother.skip(numSamples - 1);
 
     if (driveTgt > 0.01f || oddTgt > 0.01f || evenTgt > 0.01f) {
+        // [修正] サチュレーション前に1次RC LPFを適用し、エイリアス起因となる超高域を安全に減衰
+        for (int i = 0; i < numSamples; ++i) {
+            left[i] = preLpfL.processSample(0, left[i]);
+            right[i] = preLpfR.processSample(1, right[i]);
+        }
+
         satL.processBlock_AVX2(left, numSamples, driveTgt, oddTgt, evenTgt);
         satR.processBlock_AVX2(right, numSamples, driveTgt, oddTgt, evenTgt);
     }

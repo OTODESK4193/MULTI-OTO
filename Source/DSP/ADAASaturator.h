@@ -8,8 +8,8 @@ public:
     ADAASaturator() { reset(); }
 
     void reset() {
-        X_prev = _mm256_setzero_ps();
-        F1_prev = _mm256_setzero_ps();
+        last_x = 0.0f;
+        last_F1 = 0.0f;
     }
 
     void processBlock_AVX2(float* channelData, int numSamples, float driveGain, float oddAmount, float evenAmount) {
@@ -47,35 +47,57 @@ public:
         const __m256i sign_mask_i = _mm256_set1_epi32(0x7FFFFFFF);
         const __m256  sign_mask = _mm256_castsi256_ps(sign_mask_i);
 
+        // 1サンプル右シフト用インデックス [7, 0, 1, 2, 3, 4, 5, 6]
+        const __m256i shift_idx = _mm256_setr_epi32(7, 0, 1, 2, 3, 4, 5, 6);
+
         // --- 3. AVX2によるオーディオレート処理 ---
         int i = 0;
         for (; i <= numSamples - 8; i += 8) {
             processChunk(&channelData[i], drive, inv_drive, v_we, v_wo, v_max_p, v_max_n, v_c1_p, v_c1_n,
-                eps_min, eps_rel, taylor_c, half, limit, sign_mask);
+                eps_min, eps_rel, taylor_c, half, limit, sign_mask, shift_idx, 8);
         }
 
         // バッファ末尾のフェイルセーフ（VST3の非8倍数バッファ長対応）
         if (i < numSamples) {
             alignas(32) float temp[8] = { 0 };
-            for (int j = 0; j < numSamples - i; ++j) temp[j] = channelData[i + j];
+            const int remainder = numSamples - i;
+            for (int j = 0; j < remainder; ++j) temp[j] = channelData[i + j];
             processChunk(temp, drive, inv_drive, v_we, v_wo, v_max_p, v_max_n, v_c1_p, v_c1_n,
-                eps_min, eps_rel, taylor_c, half, limit, sign_mask);
-            for (int j = 0; j < numSamples - i; ++j) channelData[i + j] = temp[j];
+                eps_min, eps_rel, taylor_c, half, limit, sign_mask, shift_idx, remainder);
+            for (int j = 0; j < remainder; ++j) channelData[i + j] = temp[j];
         }
     }
 
 private:
-    __m256 X_prev;
-    __m256 F1_prev;
+    float last_x;
+    float last_F1;
+
+    // SIMD内での 1サンプル遅延シフト ＆ ブレンド
+    inline __m256 shift_and_blend(__m256 current, float prev_scalar, __m256i shift_idx) {
+        __m256 shifted = _mm256_permutevar8x32_ps(current, shift_idx);
+        __m256 prev_vec = _mm256_set1_ps(prev_scalar);
+        // mask=0x01: レーン0には過去の最後のサンプルを、レーン1〜7にはシフトした現在のサンプルをブレンド
+        return _mm256_blend_ps(shifted, prev_vec, 0x01);
+    }
+
+    // SIMDレジスタからの特定インデックスの高速抽出
+    inline float extract_element(__m256 vec, int index) {
+        alignas(32) float tmp[8];
+        _mm256_store_ps(tmp, vec);
+        return tmp[index];
+    }
 
     // SIMD完全ブランチレス処理コア
     inline void processChunk(float* data, __m256 drive, __m256 inv_drive, __m256 w_e, __m256 w_o,
         __m256 max_p, __m256 max_n, __m256 c1_p, __m256 c1_n,
         __m256 eps_min, __m256 eps_rel, __m256 taylor_c, __m256 half,
-        __m256 limit, __m256 sign_mask)
+        __m256 limit, __m256 sign_mask, __m256i shift_idx, int validSamples)
     {
         __m256 x_raw = _mm256_loadu_ps(data);
         __m256 X_n = _mm256_mul_ps(x_raw, drive); // Driven-domainでの評価
+
+        // 正しい1サンプル遅延ベクトルの生成 (x[n-1])
+        __m256 X_prev = shift_and_blend(X_n, last_x, shift_idx);
 
         // 動的閾値 (Driven Domain)
         __m256 delta_X = _mm256_sub_ps(X_n, X_prev);
@@ -91,6 +113,10 @@ private:
         // ルートA: ADAA1計算 (ΔF / ΔX)
         // ==========================================
         __m256 F1_n = eval_Chebyshev_F1(X_n, w_e, w_o, max_p, max_n, c1_p, c1_n, limit);
+
+        // F1の1サンプル遅延ベクトルの生成 (F1[n-1])
+        __m256 F1_prev = shift_and_blend(F1_n, last_F1, shift_idx);
+
         __m256 delta_F = _mm256_sub_ps(F1_n, F1_prev);
         __m256 safe_delta_X = _mm256_blendv_ps(delta_X, _mm256_set1_ps(1.0f), mask);
         __m256 y_adaa = _mm256_div_ps(delta_F, safe_delta_X);
@@ -114,8 +140,14 @@ private:
 
         _mm256_storeu_ps(data, final_out);
 
-        X_prev = X_n;
-        F1_prev = F1_n;
+        // 状態変数の更新: チャンクの最後の有効な要素を抽出し保存
+        alignas(32) float x_n_arr[8];
+        alignas(32) float F1_n_arr[8];
+        _mm256_storeu_ps(x_n_arr, X_n);
+        _mm256_storeu_ps(F1_n_arr, F1_n);
+
+        last_x = x_n_arr[validSamples - 1];
+        last_F1 = F1_n_arr[validSamples - 1];
     }
 
     inline __m256 eval_Chebyshev_f(__m256 X, __m256 w_e, __m256 w_o, __m256 max_p, __m256 max_n, __m256 L) {

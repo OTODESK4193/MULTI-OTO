@@ -1,6 +1,7 @@
 #pragma once
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <vector>
+#include <atomic>
 #include "Crossover.h"
 #include "DynamicsNode.h"
 #include "ADAASaturator.h"
@@ -40,6 +41,9 @@ private:
     Crossover crossover;
     Crossover dummyCrossover;
 
+    // サチュレーション直前のプレ・フィルター (位相回転最小の1次RC/TPT)
+    juce::dsp::FirstOrderTPTFilter<float> preLpfL, preLpfR;
+
     // ZDF/TPT フィルター (レイテンシーなし・安定性保証)
     juce::dsp::StateVariableTPTFilter<float> postHpfL, postHpfR;
     juce::dsp::StateVariableTPTFilter<float> postLpfL, postLpfR;
@@ -54,4 +58,9 @@ private:
     float limiterEnvR = 0.0f;
     float limiterReleaseCoef = 0.0f;
     float currentLimitThreshold = 0.988f;
+
+    double currentSampleRate = 48000.0;
+
+    // Ableton Live フェイルセーフ用フラグ
+    std::atomic<bool> isPrepared{ false };
 };
