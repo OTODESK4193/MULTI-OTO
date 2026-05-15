@@ -16,7 +16,6 @@ private:
 
     juce::GroupComponent preDriveGroup, stage1Group, stage2Group, masterGroup;
 
-    // --- 今回のエラーの原因：ここのボタン宣言が抜けていました ---
     juce::TextButton preDriveBtn{ "ON" };
     juce::TextButton stage1Btn{ "ON" };
     juce::TextButton stage2Btn{ "ON" };
@@ -25,7 +24,6 @@ private:
     juce::TextButton s1AdvBtn{ "ADVANCED" };
     juce::TextButton s2AdvBtn{ "ADVANCED" };
     bool s1AdvOpen = false, s2AdvOpen = false;
-    // -----------------------------------------------------------
 
     juce::ComboBox totalOttBox;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> totalOttAttachment;
@@ -34,11 +32,17 @@ private:
     ArcKnob inGain, drive, oddBlend, evenBlend;
     ArcKnob xLow, xHigh;
 
-    ArcKnob s1GainH, s1GainM, s1GainL, s1DepthH, s1DepthM, s1DepthL, s1Time, s1Mix;
-    ArcKnob s1AtkH, s1AtkM, s1AtkL, s1RelH, s1RelM, s1RelL;
+    ArcKnob s1GainL, s1GainM, s1GainH;
+    ArcKnob s1DepthL, s1DepthM, s1DepthH;
+    ArcKnob s1Time, s1Mix;
+    ArcKnob s1AtkL, s1AtkM, s1AtkH;
+    ArcKnob s1RelL, s1RelM, s1RelH;
 
-    ArcKnob s2GainH, s2GainM, s2GainL, s2DepthH, s2DepthM, s2DepthL, s2Time, s2Mix;
-    ArcKnob s2AtkH, s2AtkM, s2AtkL, s2RelH, s2RelM, s2RelL;
+    ArcKnob s2GainL, s2GainM, s2GainH;
+    ArcKnob s2DepthL, s2DepthM, s2DepthH;
+    ArcKnob s2Time, s2Mix;
+    ArcKnob s2AtkL, s2AtkM, s2AtkH;
+    ArcKnob s2RelL, s2RelM, s2RelH;
 
     ArcKnob postHPF, postLPF, dryWet, outGain, limitCeil;
 

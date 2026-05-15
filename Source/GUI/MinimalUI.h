@@ -23,6 +23,10 @@ public:
     void drawToggleButton(juce::Graphics& g, juce::ToggleButton& button, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override;
     juce::Font getLabelFont(juce::Label&) override;
 
+    // コンボボックスの文字サイズを大きくするためのオーバーライド
+    juce::Font getComboBoxFont(juce::ComboBox&) override;
+    juce::Font getPopupMenuFont() override;
+
 private:
     juce::Font groupFont;
 };
