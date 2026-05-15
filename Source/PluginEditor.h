@@ -18,7 +18,12 @@ private:
     juce::TextButton s1AdvBtn{ "ADVANCED" }, s2AdvBtn{ "ADVANCED" };
     bool s1AdvOpen = false, s2AdvOpen = false;
 
-    ArcKnob inGain, drive, oddBlend, evenBlend, totalOtt;
+    // 【修正】totalOtt を ComboBox に変更
+    juce::ComboBox totalOttBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> totalOttAttachment;
+    juce::Label totalOttLabel;
+
+    ArcKnob inGain, drive, oddBlend, evenBlend;
     ArcKnob xLow, xHigh;
 
     ArcKnob s1GainH, s1GainM, s1GainL, s1DepthH, s1DepthM, s1DepthL, s1Time;
@@ -29,7 +34,6 @@ private:
 
     ArcKnob postHPF, postLPF, dryWet, outGain, limitCeil;
 
-    // Phase Mode 用のUIを追加
     juce::ComboBox phaseModeBox;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> phaseModeAttachment;
 

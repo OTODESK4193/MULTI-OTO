@@ -13,7 +13,8 @@ struct EngineParams {
     float s2_gain[3], s2_depth[3], s2_time, s2_atk[3], s2_rel[3];
     float post_hpf, post_lpf;
     float dryWet, outGain, limitCeil;
-    int total_ott, phase_mode;
+    int total_ott_count; // Choice index から変換された実際の段数 (2,4,8,16,32,64)
+    int phase_mode;      // 0: Color, 1: Align
 };
 
 class EngineCore {
@@ -27,9 +28,8 @@ public:
     void reset();
 
 private:
-    static constexpr int NUM_NODES = 2;
+    static constexpr int MAX_NODES = 64;
 
-    // パラメータ平滑化（ジッパーノイズ対策）
     juce::SmoothedValue<float> driveSmoother;
     juce::SmoothedValue<float> oddSmoother;
     juce::SmoothedValue<float> evenSmoother;
@@ -39,12 +39,8 @@ private:
     EngineParams currentParams;
 
     Crossover crossover;
-    Crossover dummyCrossover;
 
-    // 【修正】サチュレーション直前のプレ・フィルターを 2次SVF へ変更
     juce::dsp::StateVariableTPTFilter<float> preLpfL, preLpfR;
-
-    // ZDF/TPT フィルター (レイテンシーなし・安定性保証)
     juce::dsp::StateVariableTPTFilter<float> postHpfL, postHpfR;
     juce::dsp::StateVariableTPTFilter<float> postLpfL, postLpfR;
 
@@ -60,7 +56,5 @@ private:
     float currentLimitThreshold = 0.988f;
 
     double currentSampleRate = 48000.0;
-
-    // Ableton Live フェイルセーフ用フラグ
     std::atomic<bool> isPrepared{ false };
 };

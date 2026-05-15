@@ -16,7 +16,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::crea
         layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID(id, 1), name, range, def));
         };
 
-    addFloat("total_ott", "Total OTT Count", 1.0f, 64.0f, 2.0f);
+    // 【修正】total_ott を ComboBox 用の Choice に変更
+    juce::StringArray ottChoices = { "2", "4", "8", "16", "32", "64" };
+    layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("total_ott", 1), "Total OTT Count", ottChoices, 0));
+
     addFloat("in_gain", "Input Gain", -24.0f, 24.0f, 0.0f);
     addFloat("drive", "Drive Amount", 0.0f, 100.0f, 0.0f);
     addFloat("odd_blend", "Odd Harmonics", 0.0f, 100.0f, 50.0f);
@@ -25,6 +28,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::crea
     addFreq("xover_low", "Low Freq", 20.0f, 1000.0f, 88.0f);
     addFreq("xover_high", "High Freq", 1000.0f, 20000.0f, 2500.0f);
 
+    // Stage 1
     addFloat("s1_gain_h", "S1 High Gain", -24.0f, 24.0f, 0.0f);
     addFloat("s1_gain_m", "S1 Mid Gain", -24.0f, 24.0f, 0.0f);
     addFloat("s1_gain_l", "S1 Low Gain", -24.0f, 24.0f, 0.0f);
@@ -39,6 +43,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::crea
     addFloat("s1_rel_m", "S1 Mid Release", 1.0f, 1000.0f, 50.0f);
     addFloat("s1_rel_l", "S1 Low Release", 1.0f, 1000.0f, 50.0f);
 
+    // Stage 2
     addFloat("s2_gain_h", "S2 High Gain", -24.0f, 24.0f, 0.0f);
     addFloat("s2_gain_m", "S2 Mid Gain", -24.0f, 24.0f, 0.0f);
     addFloat("s2_gain_l", "S2 Low Gain", -24.0f, 24.0f, 0.0f);
@@ -60,7 +65,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::crea
     addFloat("out_gain", "Output Gain", -24.0f, 24.0f, 0.0f);
     addFloat("limit_ceil", "Limiter Ceiling", -2.0f, -0.1f, -0.1f);
 
-    juce::StringArray phaseChoices = { "Color", "Align" };
+    juce::StringArray phaseChoices = { "COLOR PHASE", "ALIGN PHASE" };
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("phase_mode", 1), "Phase Mode", phaseChoices, 0));
 
     return layout;
@@ -93,19 +98,19 @@ bool MultiOtoAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) 
 
 void MultiOtoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) {
     if (currentSampleRate == 0.0 || buffer.getNumSamples() == 0 || std::abs(getSampleRate() - currentSampleRate) > 0.1) {
-        buffer.clear();
-        return;
+        buffer.clear(); return;
     }
-
     juce::ScopedNoDenormals noDenormals;
 
     EngineParams p;
-    p.total_ott = static_cast<int>(apvts.getRawParameterValue("total_ott")->load(std::memory_order_relaxed));
+    // Choice index から実際の段数へマッピング (2, 4, 8, 16, 32, 64)
+    int ottIdx = static_cast<int>(apvts.getRawParameterValue("total_ott")->load(std::memory_order_relaxed));
+    p.total_ott_count = 2 << ottIdx;
+
     p.inGain = apvts.getRawParameterValue("in_gain")->load(std::memory_order_relaxed);
     p.drive = apvts.getRawParameterValue("drive")->load(std::memory_order_relaxed);
     p.odd = apvts.getRawParameterValue("odd_blend")->load(std::memory_order_relaxed);
     p.even = apvts.getRawParameterValue("even_blend")->load(std::memory_order_relaxed);
-
     p.xLow = apvts.getRawParameterValue("xover_low")->load(std::memory_order_relaxed);
     p.xHigh = apvts.getRawParameterValue("xover_high")->load(std::memory_order_relaxed);
 

@@ -3,12 +3,10 @@
 #include <cmath>
 
 EngineCore::EngineCore() {
-    nodes.resize(NUM_NODES);
+    nodes.resize(MAX_NODES);
 
-    // 【修正】プレ・フィルターを2次ローパス(StateVariableTPT)として初期化
     preLpfL.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
     preLpfR.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
-
     postHpfL.setType(juce::dsp::StateVariableTPTFilterType::highpass);
     postHpfR.setType(juce::dsp::StateVariableTPTFilterType::highpass);
     postLpfL.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
@@ -20,29 +18,20 @@ void EngineCore::prepare(double sampleRate, int samplesPerBlock) {
     juce::dsp::ProcessSpec spec{ sampleRate, static_cast<juce::uint32>(samplesPerBlock), 2 };
 
     crossover.prepare(spec);
-    dummyCrossover.prepare(spec);
     for (auto& node : nodes) node.prepare(sampleRate, samplesPerBlock);
 
-    // 【修正】プレ・フィルターの初期化（17kHz, Q=0.707）
-    preLpfL.prepare(spec);
-    preLpfR.prepare(spec);
-    preLpfL.setCutoffFrequency(17000.0f);
-    preLpfR.setCutoffFrequency(17000.0f);
-    preLpfL.setResonance(0.707106f);
-    preLpfR.setResonance(0.707106f);
+    preLpfL.prepare(spec); preLpfR.prepare(spec);
+    preLpfL.setCutoffFrequency(17000.0f); preLpfR.setCutoffFrequency(17000.0f);
+    preLpfL.setResonance(0.707106f); preLpfR.setResonance(0.707106f);
 
     postHpfL.prepare(spec); postHpfR.prepare(spec);
     postLpfL.prepare(spec); postLpfR.prepare(spec);
 
     simdBuffer.resize(static_cast<size_t>(samplesPerBlock));
-
-    // Ableton Live 対策: バッファの確実なゼロクリア
     dryBuffer.setSize(2, samplesPerBlock, false, true, true);
-    dryBuffer.clear();
 
     limiterReleaseCoef = std::exp(-1.0f / (0.050f * static_cast<float>(sampleRate)));
 
-    // スムーザー初期化 (50ms)
     driveSmoother.reset(sampleRate, 0.05);
     oddSmoother.reset(sampleRate, 0.05);
     evenSmoother.reset(sampleRate, 0.05);
@@ -50,19 +39,14 @@ void EngineCore::prepare(double sampleRate, int samplesPerBlock) {
     outGainSmoother.reset(sampleRate, 0.05);
 
     reset();
-
-    // 準備完了フラグを立てる (スレッドセーフ)
     isPrepared.store(true, std::memory_order_release);
 }
 
 void EngineCore::reset() {
     crossover.reset();
-    dummyCrossover.reset();
     for (auto& node : nodes) node.reset();
-
     preLpfL.reset(); preLpfR.reset();
     satL.reset(); satR.reset();
-
     postHpfL.reset(); postHpfR.reset();
     postLpfL.reset(); postLpfR.reset();
     limiterEnvL = 0.0f; limiterEnvR = 0.0f;
@@ -78,24 +62,24 @@ void EngineCore::updateParameters(const EngineParams& p) {
     outGainSmoother.setTargetValue(FastMath::fast_exp2(p.outGain * 0.16609f));
 
     crossover.setFrequencies(p.xLow, p.xHigh);
-    dummyCrossover.setFrequencies(p.xLow, p.xHigh);
     postHpfL.setCutoffFrequency(p.post_hpf); postHpfR.setCutoffFrequency(p.post_hpf);
     postLpfL.setCutoffFrequency(p.post_lpf); postLpfR.setCutoffFrequency(p.post_lpf);
 
-    nodes[0].setParameters(p.s1_gain, p.s1_depth, p.s1_time, p.s1_atk, p.s1_rel);
-    nodes[1].setParameters(p.s2_gain, p.s2_depth, p.s2_time, p.s2_atk, p.s2_rel);
+    // 意図通り、Stage 1 と Stage 2 に半分ずつパラメータを分配
+    int half = p.total_ott_count / 2;
+    for (int i = 0; i < half; ++i) {
+        nodes[i].setParameters(p.s1_gain, p.s1_depth, p.s1_time, p.s1_atk, p.s1_rel);
+    }
+    for (int i = half; i < p.total_ott_count; ++i) {
+        nodes[i].setParameters(p.s2_gain, p.s2_depth, p.s2_time, p.s2_atk, p.s2_rel);
+    }
 
     currentLimitThreshold = FastMath::fast_exp2(p.limitCeil * 0.16609f);
 }
 
 void EngineCore::process(juce::AudioBuffer<float>& buffer) {
     juce::ScopedNoDenormals noDenormals;
-
-    // フェイルセーフ: prepare前に呼ばれる不具合の防御
-    if (!isPrepared.load(std::memory_order_acquire)) {
-        buffer.clear();
-        return;
-    }
+    if (!isPrepared.load(std::memory_order_acquire)) { buffer.clear(); return; }
 
     const int numSamples = buffer.getNumSamples();
     float* left = buffer.getWritePointer(0);
@@ -106,19 +90,14 @@ void EngineCore::process(juce::AudioBuffer<float>& buffer) {
     float* dryRight = dryBuffer.getWritePointer(1);
     float mix = currentParams.dryWet * 0.01f;
 
-    // --- STEP 1: PURE DRY BUFFERING ---
+    // --- STEP 1: DRY BUFFERING (位相アライン対応) ---
     for (int i = 0; i < numSamples; ++i) {
-        float l = left[i];
-        float r = right[i];
-        if (currentParams.phase_mode == 1) {
-            float d_lL, d_lR, d_mL, d_mR, d_hL, d_hR;
-            dummyCrossover.process(l, r, d_lL, d_lR, d_mL, d_mR, d_hL, d_hR);
-            dryLeft[i] = d_lL + d_mL + d_hL;
-            dryRight[i] = d_lR + d_mR + d_hR;
+        if (currentParams.phase_mode == 1) { // ALIGN MODE
+            crossover.processDry(left[i], right[i], dryLeft[i], dryRight[i]);
         }
-        else {
-            dryLeft[i] = l;
-            dryRight[i] = r;
+        else { // COLOR MODE
+            dryLeft[i] = left[i];
+            dryRight[i] = right[i];
         }
     }
 
@@ -141,20 +120,21 @@ void EngineCore::process(juce::AudioBuffer<float>& buffer) {
             left[i] = preLpfL.processSample(0, left[i]);
             right[i] = preLpfR.processSample(1, right[i]);
         }
-
         satL.processBlock_AVX2(left, numSamples, driveTgt, oddTgt, evenTgt);
         satR.processBlock_AVX2(right, numSamples, driveTgt, oddTgt, evenTgt);
     }
 
-    // --- STEP 4: CROSSOVER & OTT ---
+    // --- STEP 4: CROSSOVER & OTT (64段動的ループ) ---
     for (int i = 0; i < numSamples; ++i) {
         float lL, lR, mL, mR, hL, hR;
         crossover.process(left[i], right[i], lL, lR, mL, mR, hL, hR);
         alignas(32) float raw[8] = { lL, lR, mL, mR, hL, hR, 0.0f, 0.0f };
         simdBuffer[static_cast<size_t>(i)] = juce::dsp::SIMDRegister<float>::fromRawArray(raw);
     }
-    for (auto& node : nodes) {
-        node.process(simdBuffer.data(), numSamples);
+
+    // 指定された total_ott_count 分だけ直列に回す
+    for (int n = 0; n < currentParams.total_ott_count; ++n) {
+        nodes[n].process(simdBuffer.data(), numSamples);
     }
 
     // --- STEP 5: RESYNTHESIS & MIX ---
@@ -165,6 +145,7 @@ void EngineCore::process(juce::AudioBuffer<float>& buffer) {
         alignas(32) float raw[8];
         simdBuffer[static_cast<size_t>(i)].copyToRawArray(raw);
 
+        // 位相補正済みのため、単に足すだけでフラットになる
         float wetL = raw[0] + raw[2] + raw[4];
         float wetR = raw[1] + raw[3] + raw[5];
 
@@ -174,8 +155,7 @@ void EngineCore::process(juce::AudioBuffer<float>& buffer) {
         float outL = (dryLeft[i] + (wetL - dryLeft[i]) * mix) * outGainTgt;
         float outR = (dryRight[i] + (wetR - dryRight[i]) * mix) * outGainTgt;
 
-        float absL = std::abs(outL);
-        float absR = std::abs(outR);
+        float absL = std::abs(outL); float absR = std::abs(outR);
         limiterEnvL = (absL > limiterEnvL) ? absL : limiterEnvL * limiterReleaseCoef;
         limiterEnvR = (absR > limiterEnvR) ? absR : limiterEnvR * limiterReleaseCoef;
 
