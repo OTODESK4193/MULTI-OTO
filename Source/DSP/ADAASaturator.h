@@ -5,13 +5,10 @@
 
 /**
  * ADAASaturator (C2 Continuous Polynomial Version - Final)
- * * 【修正内容】
  * ODD/Evenパラメータの変化に追従して、クリップする「高さ」と「積分定数(C1)」を
  * 動的に再計算するロジックを実装。
  * 波形が x=1.0 に到達した際、いかなるパラメータ設定下でも段差（ステップ関数）が
  * 生じず、完全に滑らかなC2連続としてクリップ領域に接続されます。
- * これにより、Drive 50以上の極限状態におけるディラック・インパルス（エイリアスの嵐）
- * を根絶します。
  */
 class ADAASaturator {
 public:
@@ -29,24 +26,18 @@ public:
      */
     void processBlock_AVX2(float* channelData, int numSamples, float driveGain, float oddAmount, float evenAmount) {
         // --- 1. コントロールレートでの事前計算 ---
-        // 解析的ゲインスケーリング (1/D)
         const float d_lin = 1.0f + (driveGain * 0.2f);
-        const float inv_d = 1.0f / d_lin;
 
         // パラメータの正規化
         const float w_o = 0.5f + (oddAmount * 0.005f);
         const float w_e = evenAmount * 0.01f;
 
-        // 【最重要修正】積分定数 C1 の動的導出
-        // x=1 における F1(x) の連続性を保証する
-        // F1_poly(1) = 11/16 = 0.6875, F1_even(1) ≈ 0.457143
-        // クリップ領域(x>=1)の高さは w_o となるため、積分は w_o * x + C_pos
+        // 積分定数 C1 の動的導出
         const float C1_pos = (-0.3125f * w_o) + (0.457143f * w_e);
         const float C1_neg = (-0.3125f * w_o) - (0.457143f * w_e);
 
         // --- 2. SIMDレジスタへのブロードキャスト ---
         const __m256 v_drive = _mm256_set1_ps(d_lin);
-        const __m256 v_inv_d = _mm256_set1_ps(inv_d);
         const __m256 v_wo = _mm256_set1_ps(w_o);
         const __m256 v_we = _mm256_set1_ps(w_e);
 
@@ -67,7 +58,7 @@ public:
 
         int i = 0;
         for (; i <= numSamples - 8; i += 8) {
-            processChunk(&channelData[i], v_drive, v_inv_d, v_wo, v_we, v_c1_p, v_c1_n,
+            processChunk(&channelData[i], v_drive, v_wo, v_we, v_c1_p, v_c1_n,
                 eps_min, eps_rel, taylor_c, L_bound, sign_mask, shift_idx, 8);
         }
 
@@ -75,7 +66,7 @@ public:
             alignas(32) float temp[8] = { 0 };
             const int remainder = numSamples - i;
             for (int j = 0; j < remainder; ++j) temp[j] = channelData[i + j];
-            processChunk(temp, v_drive, v_inv_d, v_wo, v_we, v_c1_p, v_c1_n,
+            processChunk(temp, v_drive, v_wo, v_we, v_c1_p, v_c1_n,
                 eps_min, eps_rel, taylor_c, L_bound, sign_mask, shift_idx, remainder);
             for (int j = 0; j < remainder; ++j) channelData[i + j] = temp[j];
         }
@@ -91,7 +82,7 @@ private:
         return _mm256_blend_ps(shifted, prev_vec, 0x01);
     }
 
-    inline void processChunk(float* data, __m256 drive, __m256 inv_drive, __m256 w_o, __m256 w_e,
+    inline void processChunk(float* data, __m256 drive, __m256 w_o, __m256 w_e,
         __m256 c1_p, __m256 c1_n, __m256 eps_min, __m256 eps_rel, __m256 taylor_c,
         __m256 L_bound, __m256 sign_mask, __m256i shift_idx, int validSamples)
     {
@@ -123,9 +114,8 @@ private:
         __m256 taylor_term = _mm256_mul_ps(_mm256_mul_ps(f_double_prime, _mm256_mul_ps(half_delta, half_delta)), taylor_c);
         __m256 y_fallback = _mm256_add_ps(f_mid, taylor_term);
 
-        // ブランチレス合成と出力スケーリング
+        // ブランチレス合成と出力
         __m256 y_out = _mm256_blendv_ps(y_adaa, y_fallback, mask);
-        // 正解（y_out をそのまま出力する）
         _mm256_storeu_ps(data, y_out);
 
         // 状態更新
@@ -143,13 +133,11 @@ private:
     inline __m256 eval_C2_f(__m256 X, __m256 w_o, __m256 w_e, __m256 L_bound) {
         __m256 X2 = _mm256_mul_ps(X, X);
 
-        // Horner's method: x * (1.875 - 1.25*x^2 + 0.375*x^4)
         __m256 poly = _mm256_add_ps(_mm256_set1_ps(1.875f),
             _mm256_mul_ps(X2, _mm256_add_ps(_mm256_set1_ps(-1.25f),
                 _mm256_mul_ps(X2, _mm256_set1_ps(0.375f)))));
         __m256 f_poly = _mm256_mul_ps(X, poly);
 
-        // 偶数次成分: (1-x^2)^3
         __m256 omx2 = _mm256_sub_ps(_mm256_set1_ps(1.0f), X2);
         __m256 f_even = _mm256_mul_ps(omx2, _mm256_mul_ps(omx2, omx2));
 
@@ -158,7 +146,6 @@ private:
         __m256 mask_pos = _mm256_cmp_ps(X, L_bound, _CMP_GT_OQ);
         __m256 mask_neg = _mm256_cmp_ps(X, _mm256_sub_ps(_mm256_setzero_ps(), L_bound), _CMP_LT_OQ);
 
-        // 【修正箇所】クリップ時の高さを 1.0f ではなく w_o と -w_o に連動させる
         __m256 res = _mm256_blendv_ps(f_mix, w_o, mask_pos);
         return _mm256_blendv_ps(res, _mm256_sub_ps(_mm256_setzero_ps(), w_o), mask_neg);
     }
@@ -169,13 +156,11 @@ private:
     inline __m256 eval_C2_F1(__m256 X, __m256 w_o, __m256 w_e, __m256 c1_p, __m256 c1_n, __m256 L_bound) {
         __m256 X2 = _mm256_mul_ps(X, X);
 
-        // Odd component integral
         __m256 poly = _mm256_add_ps(_mm256_set1_ps(0.9375f),
             _mm256_mul_ps(X2, _mm256_add_ps(_mm256_set1_ps(-0.3125f),
                 _mm256_mul_ps(X2, _mm256_set1_ps(0.0625f)))));
         __m256 F1_odd = _mm256_mul_ps(X2, poly);
 
-        // Even component integral
         __m256 F1_even = _mm256_mul_ps(X, _mm256_add_ps(_mm256_set1_ps(1.0f),
             _mm256_mul_ps(X2, _mm256_add_ps(_mm256_set1_ps(-1.0f),
                 _mm256_mul_ps(X2, _mm256_add_ps(_mm256_set1_ps(0.6f),
@@ -183,7 +168,6 @@ private:
 
         __m256 F1_mix = _mm256_add_ps(_mm256_mul_ps(F1_odd, w_o), _mm256_mul_ps(F1_even, w_e));
 
-        // 【修正箇所】クリップ領域の積分を w_o * x + C に修正
         __m256 w_o_neg = _mm256_sub_ps(_mm256_setzero_ps(), w_o);
         __m256 F1_out_pos = _mm256_add_ps(_mm256_mul_ps(w_o, X), c1_p);
         __m256 F1_out_neg = _mm256_add_ps(_mm256_mul_ps(w_o_neg, X), c1_n);
@@ -201,11 +185,9 @@ private:
     inline __m256 eval_C2_f_double_prime(__m256 X, __m256 w_o, __m256 w_e, __m256 L_bound, __m256 sign_mask) {
         __m256 X2 = _mm256_mul_ps(X, X);
 
-        // Odd component f''
         __m256 fdp_odd = _mm256_mul_ps(_mm256_set1_ps(7.5f),
             _mm256_sub_ps(_mm256_mul_ps(X2, X), X));
 
-        // Even component f''
         __m256 omx2 = _mm256_sub_ps(_mm256_set1_ps(1.0f), X2);
         __m256 fdp_even = _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(-6.0f), _mm256_mul_ps(omx2, omx2)),
             _mm256_mul_ps(_mm256_set1_ps(24.0f), _mm256_mul_ps(X2, omx2)));
@@ -214,6 +196,6 @@ private:
 
         __m256 abs_X = _mm256_and_ps(X, sign_mask);
         __m256 mask_clip = _mm256_cmp_ps(abs_X, L_bound, _CMP_GT_OQ);
-        return _mm256_blendv_ps(fdp_mix, _mm256_setzero_ps(), mask_clip); // クリップ時は曲率0
+        return _mm256_blendv_ps(fdp_mix, _mm256_setzero_ps(), mask_clip);
     }
 };

@@ -5,9 +5,9 @@
 EngineCore::EngineCore() {
     nodes.resize(NUM_NODES);
 
-    // プレ・フィルターを1次ローパスとして初期化
-    preLpfL.setType(juce::dsp::FirstOrderTPTFilterType::lowpass);
-    preLpfR.setType(juce::dsp::FirstOrderTPTFilterType::lowpass);
+    // 【修正】プレ・フィルターを2次ローパス(StateVariableTPT)として初期化
+    preLpfL.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
+    preLpfR.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
 
     postHpfL.setType(juce::dsp::StateVariableTPTFilterType::highpass);
     postHpfR.setType(juce::dsp::StateVariableTPTFilterType::highpass);
@@ -23,11 +23,13 @@ void EngineCore::prepare(double sampleRate, int samplesPerBlock) {
     dummyCrossover.prepare(spec);
     for (auto& node : nodes) node.prepare(sampleRate, samplesPerBlock);
 
-    // プレ・フィルターの初期化（カットオフは超高域の折り返し防止に最適化された 15kHz）
+    // 【修正】プレ・フィルターの初期化（17kHz, Q=0.707）
     preLpfL.prepare(spec);
     preLpfR.prepare(spec);
-    preLpfL.setCutoffFrequency(15000.0f);
-    preLpfR.setCutoffFrequency(15000.0f);
+    preLpfL.setCutoffFrequency(17000.0f);
+    preLpfR.setCutoffFrequency(17000.0f);
+    preLpfL.setResonance(0.707106f);
+    preLpfR.setResonance(0.707106f);
 
     postHpfL.prepare(spec); postHpfR.prepare(spec);
     postLpfL.prepare(spec); postLpfR.prepare(spec);
@@ -87,10 +89,9 @@ void EngineCore::updateParameters(const EngineParams& p) {
 }
 
 void EngineCore::process(juce::AudioBuffer<float>& buffer) {
-    // デノーマル値によるCPUスパイク防止
     juce::ScopedNoDenormals noDenormals;
 
-    // Ableton Live 特有のフェイルセーフ: prepare前に異なるサンプルレートで呼ばれる不具合の防御
+    // フェイルセーフ: prepare前に呼ばれる不具合の防御
     if (!isPrepared.load(std::memory_order_acquire)) {
         buffer.clear();
         return;
@@ -100,7 +101,6 @@ void EngineCore::process(juce::AudioBuffer<float>& buffer) {
     float* left = buffer.getWritePointer(0);
     float* right = buffer.getWritePointer(1);
 
-    // 干渉を防ぐため毎ブロッククリアを確実に行う
     dryBuffer.clear();
     float* dryLeft = dryBuffer.getWritePointer(0);
     float* dryRight = dryBuffer.getWritePointer(1);
@@ -137,7 +137,6 @@ void EngineCore::process(juce::AudioBuffer<float>& buffer) {
     evenSmoother.skip(numSamples - 1);
 
     if (driveTgt > 0.01f || oddTgt > 0.01f || evenTgt > 0.01f) {
-        // [修正] サチュレーション前に1次RC LPFを適用し、エイリアス起因となる超高域を安全に減衰
         for (int i = 0; i < numSamples; ++i) {
             left[i] = preLpfL.processSample(0, left[i]);
             right[i] = preLpfR.processSample(1, right[i]);

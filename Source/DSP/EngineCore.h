@@ -41,8 +41,8 @@ private:
     Crossover crossover;
     Crossover dummyCrossover;
 
-    // サチュレーション直前のプレ・フィルター (位相回転最小の1次RC/TPT)
-    juce::dsp::FirstOrderTPTFilter<float> preLpfL, preLpfR;
+    // 【修正】サチュレーション直前のプレ・フィルターを 2次SVF へ変更
+    juce::dsp::StateVariableTPTFilter<float> preLpfL, preLpfR;
 
     // ZDF/TPT フィルター (レイテンシーなし・安定性保証)
     juce::dsp::StateVariableTPTFilter<float> postHpfL, postHpfR;
