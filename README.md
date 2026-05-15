@@ -49,6 +49,15 @@ Authentic upward and downward compression algorithms tailored for extreme sound 
 `C:\Program Files\Common Files\VST3`
 3. Rescan your plugins in Ableton Live.
 
+## 📚 User Guide
+
+A comprehensive manual covering detailed technical specifications and operational guidelines is included with this repository.
+
+[ ![Manual PDF (JP)](https://img.shields.io/badge/Manual-PDF_(JP)-red?style=for-the-badge&logo=adobe-acrobat-reader) ](./Source/Assets/LUMINA_Manual_JP.pdf)
+
+[ ![Manual PDF (EN)](https://img.shields.io/badge/Manual-PDF_(EN)-red?style=for-the-badge&logo=adobe-acrobat-reader) ](./Source/Assets/LUMINA_Manual_EN.pdf)
+
+
 ## Disclaimer & Stability
 
 This software is provided "as-is", without any warranty of any kind.
