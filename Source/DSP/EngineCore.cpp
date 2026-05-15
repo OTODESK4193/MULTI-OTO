@@ -43,14 +43,8 @@ void EngineCore::process(juce::AudioBuffer<float>& buffer) {
     const int numSamples = buffer.getNumSamples();
     float* left = buffer.getWritePointer(0); float* right = buffer.getWritePointer(1);
 
-    // 聴感上完全に無音のディザー（-144dB）のみを注入。デノーマル防止用。
-    static uint32_t seed = 12345;
-    for (int i = 0; i < numSamples; ++i) {
-        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
-        float noise = (static_cast<float>(seed) * (1.0f / 4294967296.0f) - 0.5f) * 1e-8f;
-        left[i] += noise;
-        right[i] += noise;
-    }
+    // 【修正】人工的なディザー（ホワイトノイズ）注入のループを完全に削除しました。
+    // これにより、入力が無音(0.0)の時は完全に静寂を保ちます。
 
     dryBuffer.clear(); float* dL = dryBuffer.getWritePointer(0); float* dR = dryBuffer.getWritePointer(1);
 

@@ -42,12 +42,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::crea
         addFloat("s" + st + "_depth_l", "S" + st + " Low Depth", 0.0f, 100.0f, 100.0f);
         addFloat("s" + st + "_time", "S" + st + " Macro Time", 10.0f, 1000.0f, 100.0f);
         addFloat("s" + st + "_mix", "S" + st + " Mix", 0.0f, 100.0f, 100.0f);
-        addFloat("s" + st + "_atk_h", "S" + st + " High Attack", 0.1f, 100.0f, 5.0f);
-        addFloat("s" + st + "_atk_m", "S" + st + " Mid Attack", 0.1f, 100.0f, 5.0f);
-        addFloat("s" + st + "_atk_l", "S" + st + " Low Attack", 0.1f, 100.0f, 5.0f);
-        addFloat("s" + st + "_rel_h", "S" + st + " High Release", 1.0f, 1000.0f, 50.0f);
-        addFloat("s" + st + "_rel_m", "S" + st + " Mid Release", 1.0f, 1000.0f, 50.0f);
-        addFloat("s" + st + "_rel_l", "S" + st + " Low Release", 1.0f, 1000.0f, 50.0f);
+
+        // 【最重要】Ableton OTTの純正タイム設定へ変更
+        addFloat("s" + st + "_atk_h", "S" + st + " High Attack", 0.1f, 100.0f, 14.5f);
+        addFloat("s" + st + "_atk_m", "S" + st + " Mid Attack", 0.1f, 100.0f, 26.5f);
+        addFloat("s" + st + "_atk_l", "S" + st + " Low Attack", 0.1f, 100.0f, 57.0f);
+        addFloat("s" + st + "_rel_h", "S" + st + " High Release", 1.0f, 1000.0f, 41.5f);
+        addFloat("s" + st + "_rel_m", "S" + st + " Mid Release", 1.0f, 1000.0f, 119.0f);
+        addFloat("s" + st + "_rel_l", "S" + st + " Low Release", 1.0f, 1000.0f, 249.0f);
         };
 
     buildStageParams(1);
@@ -65,10 +67,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::crea
 
     return layout;
 }
-
-// ==============================================================================
-// Processor ライフサイクル関数群 (リンクエラーの原因となっていた実装)
-// ==============================================================================
 
 MultiOtoAudioProcessor::MultiOtoAudioProcessor()
     : AudioProcessor(BusesProperties()
@@ -95,17 +93,12 @@ bool MultiOtoAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) 
     return true;
 }
 
-// ==============================================================================
-// オーディオ処理ブロック
-// ==============================================================================
-
 void MultiOtoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) {
     if (buffer.getNumSamples() == 0) return;
     juce::ScopedNoDenormals noDenormals;
 
     EngineParams p;
 
-    // Choice index から実際の段数へマッピング (2, 4, 8, 16, 32, 64)
     int ottIdx = static_cast<int>(apvts.getRawParameterValue("total_ott")->load(std::memory_order_relaxed));
     p.total_ott_count = 2 << ottIdx;
 
