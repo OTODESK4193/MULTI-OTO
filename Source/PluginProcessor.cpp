@@ -17,7 +17,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::crea
         layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID(id, 1), name, def));
         };
 
-    juce::StringArray ottChoices = { "2", "4", "8", "16", "32", "64" };
+    // 【変更】128を追加
+    juce::StringArray ottChoices = { "2", "4", "8", "16", "32", "64", "128" };
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("total_ott", 1), "Total OTT Count", ottChoices, 0));
 
     addBool("predrive_on", "PreDrive Bypass", true);
@@ -26,30 +27,29 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::crea
 
     addFloat("in_gain", "Input Gain", -24.0f, 24.0f, 0.0f);
     addFloat("drive", "Drive Amount", 0.0f, 100.0f, 0.0f);
-    addFloat("odd_blend", "Odd Harmonics", 0.0f, 100.0f, 50.0f);
-    addFloat("even_blend", "Even Harmonics", 0.0f, 100.0f, 50.0f);
+    addFloat("odd_blend", "Odd Harmonics", 0.0f, 100.0f, 0.0f);
+    addFloat("even_blend", "Even Harmonics", 0.0f, 100.0f, 0.0f);
 
     addFreq("xover_low", "Low Freq", 20.0f, 1000.0f, 88.0f);
     addFreq("xover_high", "High Freq", 1000.0f, 20000.0f, 2500.0f);
 
     auto buildStageParams = [&](int s) {
         juce::String st = juce::String(s);
-        addFloat("s" + st + "_gain_h", "S" + st + " High Gain", -24.0f, 24.0f, 0.0f);
-        addFloat("s" + st + "_gain_m", "S" + st + " Mid Gain", -24.0f, 24.0f, 0.0f);
-        addFloat("s" + st + "_gain_l", "S" + st + " Low Gain", -24.0f, 24.0f, 0.0f);
-        addFloat("s" + st + "_depth_h", "S" + st + " High Depth", 0.0f, 100.0f, 100.0f);
-        addFloat("s" + st + "_depth_m", "S" + st + " Mid Depth", 0.0f, 100.0f, 100.0f);
-        addFloat("s" + st + "_depth_l", "S" + st + " Low Depth", 0.0f, 100.0f, 100.0f);
-        addFloat("s" + st + "_time", "S" + st + " Macro Time", 10.0f, 1000.0f, 100.0f);
+        addFloat("s" + st + "_gain_h", "S" + st + " High Gain", -24.0f, 24.0f, 8.6f);
+        addFloat("s" + st + "_gain_m", "S" + st + " Mid Gain", -24.0f, 24.0f, 5.8f);
+        addFloat("s" + st + "_gain_l", "S" + st + " Low Gain", -24.0f, 24.0f, 8.4f);
+        addFloat("s" + st + "_depth_h", "S" + st + " High Depth", 0.0f, 100.0f, 50.0f);
+        addFloat("s" + st + "_depth_m", "S" + st + " Mid Depth", 0.0f, 100.0f, 50.0f);
+        addFloat("s" + st + "_depth_l", "S" + st + " Low Depth", 0.0f, 100.0f, 50.0f);
+        addFloat("s" + st + "_time", "S" + st + " Macro Time", 10.0f, 1000.0f, 50.0f);
         addFloat("s" + st + "_mix", "S" + st + " Mix", 0.0f, 100.0f, 100.0f);
 
-        // 【最重要】Ableton OTTの純正タイム設定へ変更
-        addFloat("s" + st + "_atk_h", "S" + st + " High Attack", 0.1f, 100.0f, 14.5f);
-        addFloat("s" + st + "_atk_m", "S" + st + " Mid Attack", 0.1f, 100.0f, 26.5f);
-        addFloat("s" + st + "_atk_l", "S" + st + " Low Attack", 0.1f, 100.0f, 57.0f);
-        addFloat("s" + st + "_rel_h", "S" + st + " High Release", 1.0f, 1000.0f, 41.5f);
-        addFloat("s" + st + "_rel_m", "S" + st + " Mid Release", 1.0f, 1000.0f, 119.0f);
-        addFloat("s" + st + "_rel_l", "S" + st + " Low Release", 1.0f, 1000.0f, 249.0f);
+        addFloat("s" + st + "_atk_h", "S" + st + " High Attack", 0.1f, 100.0f, 13.5f);
+        addFloat("s" + st + "_atk_m", "S" + st + " Mid Attack", 0.1f, 100.0f, 22.4f);
+        addFloat("s" + st + "_atk_l", "S" + st + " Low Attack", 0.1f, 100.0f, 47.8f);
+        addFloat("s" + st + "_rel_h", "S" + st + " High Release", 1.0f, 1000.0f, 132.0f);
+        addFloat("s" + st + "_rel_m", "S" + st + " Mid Release", 1.0f, 1000.0f, 282.0f);
+        addFloat("s" + st + "_rel_l", "S" + st + " Low Release", 1.0f, 1000.0f, 168.0f);
         };
 
     buildStageParams(1);

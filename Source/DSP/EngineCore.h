@@ -21,17 +21,18 @@ public:
     void reset();
 
 private:
-    static constexpr int MAX_NODES = 64;
+    // 【変更】限界を128に引き上げ
+    static constexpr int MAX_NODES = 128;
+
     juce::SmoothedValue<float> driveSmoother, oddSmoother, evenSmoother, inGainSmoother, outGainSmoother;
     EngineParams currentParams;
 
-    // 【重要】64個のOTTそれぞれに独立したCrossoverを持たせる
     std::vector<Crossover> crossovers;
-    std::vector<Crossover> dryCrossovers; // Align Phase用
+    std::vector<Crossover> dryCrossovers;
     std::vector<DynamicsNode> nodes;
 
     juce::dsp::StateVariableTPTFilter<float> preLpfL, preLpfR, postHpfL, postHpfR, postLpfL, postLpfR;
-    juce::dsp::IIR::Filter<float> dcBlockL, dcBlockR; // DCオフセット発振キラー
+    juce::dsp::IIR::Filter<float> dcBlockL, dcBlockR;
 
     std::vector<juce::dsp::SIMDRegister<float>> simdBuffer;
     juce::AudioBuffer<float> dryBuffer;

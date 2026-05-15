@@ -19,7 +19,8 @@ MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor(MultiOtoAudioProcesso
     setupBtn(stage1Btn, "s1_on", s1At);
     setupBtn(stage2Btn, "s2_on", s2At);
 
-    totalOttBox.addItemList({ "2","4","8","16","32","64" }, 1);
+    // 【変更】UI上でも128を選択できるように追加
+    totalOttBox.addItemList({ "2","4","8","16","32","64","128" }, 1);
     totalOttBox.setLookAndFeel(&laf);
     addAndMakeVisible(totalOttBox);
     totalOttAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "total_ott", totalOttBox);
@@ -46,12 +47,15 @@ MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor(MultiOtoAudioProcesso
         gn[0].build(apvts, "s" + st + "_gain_l", "LOW G", this, laf);
         gn[1].build(apvts, "s" + st + "_gain_m", "MID G", this, laf);
         gn[2].build(apvts, "s" + st + "_gain_h", "HI G", this, laf);
+
         dp[0].build(apvts, "s" + st + "_depth_l", "LOW D", this, laf);
         dp[1].build(apvts, "s" + st + "_depth_m", "MID D", this, laf);
         dp[2].build(apvts, "s" + st + "_depth_h", "HI D", this, laf);
+
         ak[0].build(apvts, "s" + st + "_atk_l", "ATK L", this, laf);
         ak[1].build(apvts, "s" + st + "_atk_m", "ATK M", this, laf);
         ak[2].build(apvts, "s" + st + "_atk_h", "ATK H", this, laf);
+
         rl[0].build(apvts, "s" + st + "_rel_l", "REL L", this, laf);
         rl[1].build(apvts, "s" + st + "_rel_m", "REL M", this, laf);
         rl[2].build(apvts, "s" + st + "_rel_h", "REL H", this, laf);
@@ -66,7 +70,8 @@ MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor(MultiOtoAudioProcesso
         }
         };
 
-    buildS(1); buildS(2);
+    buildS(1);
+    buildS(2);
 
     postHPF.build(apvts, "post_hpf", "HPF", this, laf);
     postLPF.build(apvts, "post_lpf", "LPF", this, laf);
@@ -85,7 +90,7 @@ MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor(MultiOtoAudioProcesso
     addAndMakeVisible(stage2Group); stage2Group.setText("STAGE 2");
     addAndMakeVisible(masterGroup); masterGroup.setText("MASTER");
 
-    setSize(865, 710); // 余白を完全に計算し直したジャストサイズ
+    setSize(895, 750);
 }
 
 MultiOtoAudioProcessorEditor::~MultiOtoAudioProcessorEditor() {
@@ -101,8 +106,8 @@ void MultiOtoAudioProcessorEditor::paint(juce::Graphics& g) {
 
 void MultiOtoAudioProcessorEditor::resized() {
     auto area = getLocalBounds().reduced(20);
-    int kS = 90; // すべてのノブを90pxに完全統一
-    int gap = 15; // 隙間
+    int kS = 90;
+    int gap = 15;
 
     auto topArea = area.removeFromTop(210);
 
@@ -116,26 +121,27 @@ void MultiOtoAudioProcessorEditor::resized() {
     evenBlend.setBounds(pR1.removeFromLeft(kS));
 
     auto pR2 = pA.removeFromTop(kS);
-    preDriveBtn.setBounds(pR2.removeFromLeft(kS).withSizeKeepingCentre(60, 24));
+    auto onCell = pR2.removeFromLeft(kS);
+    preDriveBtn.setBounds(onCell.withSizeKeepingCentre(60, 24));
     pR2.removeFromLeft(gap);
 
-    auto countArea = pR2.removeFromLeft(kS);
-    totalOttBox.setBounds(countArea.withSizeKeepingCentre(75, 28).translated(0, -5));
-    totalOttLabel.setBounds(countArea.withSizeKeepingCentre(75, 15).translated(0, 15));
+    auto countCell = pR2.removeFromLeft(kS);
+    totalOttBox.setBounds(countCell.withSizeKeepingCentre(75, 26).translated(0, -5));
+    totalOttLabel.setBounds(countCell.withSizeKeepingCentre(75, 15).translated(0, 15));
     pR2.removeFromLeft(gap);
 
     xLow.setBounds(pR2.removeFromLeft(kS)); pR2.removeFromLeft(gap);
     xHigh.setBounds(pR2.removeFromLeft(kS));
 
-    topArea.removeFromLeft(40);
+    topArea.removeFromLeft(60);
 
-    masterGroup.setBounds(topArea.removeFromLeft(330));
+    masterGroup.setBounds(topArea.removeFromLeft(360));
     auto mA = masterGroup.getBounds().reduced(15).withTrimmedTop(15);
 
     auto mR1 = mA.removeFromTop(kS);
     postHPF.setBounds(mR1.removeFromLeft(kS)); mR1.removeFromLeft(gap);
     postLPF.setBounds(mR1.removeFromLeft(kS)); mR1.removeFromLeft(gap);
-    phaseModeBox.setBounds(mR1.removeFromLeft(120).withSizeKeepingCentre(110, 28).translated(-5, -5));
+    phaseModeBox.setBounds(mR1.removeFromLeft(120).withSizeKeepingCentre(115, 26).translated(0, -5));
 
     auto mR2 = mA.removeFromTop(kS);
     dryWet.setBounds(mR2.removeFromLeft(kS)); mR2.removeFromLeft(gap);
@@ -154,30 +160,37 @@ void MultiOtoAudioProcessorEditor::resized() {
             auto sA = b.reduced(15).withTrimmedTop(15);
 
             auto btnCol = sA.removeFromLeft(kS);
-            onBtn.setBounds(btnCol.withSizeKeepingCentre(60, 24));
+            onBtn.setBounds(btnCol.removeFromTop(kS).withSizeKeepingCentre(60, 24));
 
             sA.removeFromLeft(gap);
 
-            // 全7カラムのノブを平坦に並べる (7 * 90) + (6 * 15) = 630px + 90px = 720px
-            auto bA = sA.removeFromLeft(kS * 7 + gap * 6);
+            auto basicCol = sA.removeFromLeft(kS * 4 + gap * 3);
 
-            auto bR1 = bA.removeFromTop(kS);
+            auto bR1 = basicCol.removeFromTop(kS);
             gL.setBounds(bR1.removeFromLeft(kS)); bR1.removeFromLeft(gap);
             gM.setBounds(bR1.removeFromLeft(kS)); bR1.removeFromLeft(gap);
             gH.setBounds(bR1.removeFromLeft(kS)); bR1.removeFromLeft(gap);
-            time.setBounds(bR1.removeFromLeft(kS)); bR1.removeFromLeft(gap);
-            aL.setBounds(bR1.removeFromLeft(kS)); bR1.removeFromLeft(gap);
-            aM.setBounds(bR1.removeFromLeft(kS)); bR1.removeFromLeft(gap);
-            aH.setBounds(bR1.removeFromLeft(kS));
+            time.setBounds(bR1.removeFromLeft(kS));
 
-            auto bR2 = bA.removeFromTop(kS);
+            auto bR2 = basicCol.removeFromTop(kS);
             dL.setBounds(bR2.removeFromLeft(kS)); bR2.removeFromLeft(gap);
             dM.setBounds(bR2.removeFromLeft(kS)); bR2.removeFromLeft(gap);
             dH.setBounds(bR2.removeFromLeft(kS)); bR2.removeFromLeft(gap);
-            mix.setBounds(bR2.removeFromLeft(kS)); bR2.removeFromLeft(gap);
-            rL.setBounds(bR2.removeFromLeft(kS)); bR2.removeFromLeft(gap);
-            rM.setBounds(bR2.removeFromLeft(kS)); bR2.removeFromLeft(gap);
-            rH.setBounds(bR2.removeFromLeft(kS));
+            mix.setBounds(bR2.removeFromLeft(kS));
+
+            sA.removeFromLeft(gap);
+
+            auto advCol = sA.removeFromLeft(kS * 3 + gap * 2);
+
+            auto aR1 = advCol.removeFromTop(kS);
+            aL.setBounds(aR1.removeFromLeft(kS)); aR1.removeFromLeft(gap);
+            aM.setBounds(aR1.removeFromLeft(kS)); aR1.removeFromLeft(gap);
+            aH.setBounds(aR1.removeFromLeft(kS));
+
+            auto aR2 = advCol.removeFromTop(kS);
+            rL.setBounds(aR2.removeFromLeft(kS)); aR2.removeFromLeft(gap);
+            rM.setBounds(aR2.removeFromLeft(kS)); aR2.removeFromLeft(gap);
+            rH.setBounds(aR2.removeFromLeft(kS));
         };
 
     layoutS(stage1Group, stage1Btn,
@@ -185,7 +198,7 @@ void MultiOtoAudioProcessorEditor::resized() {
         s1DepthL, s1DepthM, s1DepthH, s1Mix,
         s1AtkL, s1AtkM, s1AtkH,
         s1RelL, s1RelM, s1RelH,
-        area.removeFromTop(210));
+        area.removeFromTop(230));
 
     area.removeFromTop(10);
 
@@ -194,5 +207,5 @@ void MultiOtoAudioProcessorEditor::resized() {
         s2DepthL, s2DepthM, s2DepthH, s2Mix,
         s2AtkL, s2AtkM, s2AtkH,
         s2RelL, s2RelM, s2RelH,
-        area.removeFromTop(210));
+        area.removeFromTop(230));
 }
