@@ -125,9 +125,8 @@ private:
 
         // ブランチレス合成と出力スケーリング
         __m256 y_out = _mm256_blendv_ps(y_adaa, y_fallback, mask);
-        __m256 final_out = _mm256_mul_ps(y_out, inv_drive);
-
-        _mm256_storeu_ps(data, final_out);
+        // 正解（y_out をそのまま出力する）
+        _mm256_storeu_ps(data, y_out);
 
         // 状態更新
         alignas(32) float x_n_arr[8];
