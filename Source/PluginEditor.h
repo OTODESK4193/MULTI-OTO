@@ -2,13 +2,12 @@
 #include "PluginProcessor.h"
 #include "GUI/MinimalUI.h"
 
-class MultiOtoAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Button::Listener {
+class MultiOtoAudioProcessorEditor : public juce::AudioProcessorEditor {
 public:
     MultiOtoAudioProcessorEditor(MultiOtoAudioProcessor&);
     ~MultiOtoAudioProcessorEditor() override;
     void paint(juce::Graphics&) override;
     void resized() override;
-    void buttonClicked(juce::Button* b) override;
 
 private:
     MultiOtoAudioProcessor& audioProcessor;
@@ -20,10 +19,6 @@ private:
     juce::TextButton stage1Btn{ "ON" };
     juce::TextButton stage2Btn{ "ON" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> preDriveAt, s1At, s2At;
-
-    juce::TextButton s1AdvBtn{ "ADVANCED" };
-    juce::TextButton s2AdvBtn{ "ADVANCED" };
-    bool s1AdvOpen = false, s2AdvOpen = false;
 
     juce::ComboBox totalOttBox;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> totalOttAttachment;
