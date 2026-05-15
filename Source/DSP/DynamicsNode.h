@@ -27,7 +27,6 @@ public:
             float finalRelMs = std::max(1.0f, releases[i] * timeScale);
             float aC = 1.0f - std::exp(-1.0f / (finalAtkMs * 0.001f * static_cast<float>(currentSampleRate)));
             float rC = 1.0f - std::exp(-1.0f / (finalRelMs * 0.001f * static_cast<float>(currentSampleRate)));
-
             aArr[i * 2] = aC; aArr[i * 2 + 1] = aC;
             rArr[i * 2] = rC; rArr[i * 2 + 1] = rC;
             dArr[i * 2] = depths[i] * 0.01f; dArr[i * 2 + 1] = depths[i] * 0.01f;
@@ -40,18 +39,20 @@ public:
     }
 
     void process(juce::dsp::SIMDRegister<float>* simmData, int numSamples) {
+        const __m256 sign_mask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF));
         const __m256 db_scaler = _mm256_set1_ps(6.0205f), linear_scaler = _mm256_set1_ps(0.16609f);
+
         const __m256 down_thresh = _mm256_set1_ps(-15.0f), up_thresh = _mm256_set1_ps(-40.0f);
         const __m256 down_ratio_m = _mm256_set1_ps(-(1.0f - 0.25f)); // 1:4 Ratio
         const __m256 up_ratio_m = _mm256_set1_ps(0.5f);              // 1:2 Ratio
-        const __m256 max_up_gain = _mm256_set1_ps(36.0f);            // 限界ゲイン制限
+        const __m256 max_up_gain = _mm256_set1_ps(36.0f);            // 限界 Range 制限 (+36dB)
 
         __m256* buffer = reinterpret_cast<__m256*>(simmData);
 
         for (int i = 0; i < numSamples; ++i) {
             __m256 input = buffer[i];
 
-            // RMSベースの滑らかなエンベロープ（リップル歪みを防ぐ）
+            // ピークではなく、本家と同じ滑らかなRMSエンベロープを使用
             __m256 inSq = _mm256_mul_ps(input, input);
             __m256 isAttack = _mm256_cmp_ps(inSq, v_envSq, _CMP_GT_OQ);
             __m256 coeff = _mm256_blendv_ps(v_rel, v_atk, isAttack);
@@ -60,7 +61,7 @@ public:
             __m256 envRms = _mm256_sqrt_ps(_mm256_max_ps(v_envSq, _mm256_set1_ps(1e-15f)));
             __m256 envDb = _mm256_mul_ps(FastMath::fast_log2_256(envRms), db_scaler);
 
-            // Downward & Upward (ゲートなし)
+            // ノイズゲート完全撤廃。Range(max_up_gain)のみで発振を抑える
             __m256 overThresh = _mm256_max_ps(_mm256_setzero_ps(), _mm256_sub_ps(envDb, down_thresh));
             __m256 downGainDb = _mm256_mul_ps(_mm256_mul_ps(overThresh, down_ratio_m), v_depth);
 

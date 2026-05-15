@@ -46,15 +46,12 @@ MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor(MultiOtoAudioProcesso
         gn[0].build(apvts, "s" + st + "_gain_l", "LOW G", this, laf);
         gn[1].build(apvts, "s" + st + "_gain_m", "MID G", this, laf);
         gn[2].build(apvts, "s" + st + "_gain_h", "HI G", this, laf);
-
         dp[0].build(apvts, "s" + st + "_depth_l", "LOW D", this, laf);
         dp[1].build(apvts, "s" + st + "_depth_m", "MID D", this, laf);
         dp[2].build(apvts, "s" + st + "_depth_h", "HI D", this, laf);
-
         ak[0].build(apvts, "s" + st + "_atk_l", "ATK L", this, laf);
         ak[1].build(apvts, "s" + st + "_atk_m", "ATK M", this, laf);
         ak[2].build(apvts, "s" + st + "_atk_h", "ATK H", this, laf);
-
         rl[0].build(apvts, "s" + st + "_rel_l", "REL L", this, laf);
         rl[1].build(apvts, "s" + st + "_rel_m", "REL M", this, laf);
         rl[2].build(apvts, "s" + st + "_rel_h", "REL H", this, laf);
@@ -69,8 +66,7 @@ MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor(MultiOtoAudioProcesso
         }
         };
 
-    buildS(1);
-    buildS(2);
+    buildS(1); buildS(2);
 
     postHPF.build(apvts, "post_hpf", "HPF", this, laf);
     postLPF.build(apvts, "post_lpf", "LPF", this, laf);
@@ -89,7 +85,7 @@ MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor(MultiOtoAudioProcesso
     addAndMakeVisible(stage2Group); stage2Group.setText("STAGE 2");
     addAndMakeVisible(masterGroup); masterGroup.setText("MASTER");
 
-    setSize(895, 750); // 計算されたピクセルパーフェクトな横幅
+    setSize(865, 710); // 余白を完全に計算し直したジャストサイズ
 }
 
 MultiOtoAudioProcessorEditor::~MultiOtoAudioProcessorEditor() {
@@ -108,12 +104,9 @@ void MultiOtoAudioProcessorEditor::resized() {
     int kS = 90; // すべてのノブを90pxに完全統一
     int gap = 15; // 隙間
 
-    // ==========================================
-    // 上段エリア (PreDrive & Master)
-    // ==========================================
     auto topArea = area.removeFromTop(210);
 
-    preDriveGroup.setBounds(topArea.removeFromLeft(435));
+    preDriveGroup.setBounds(topArea.removeFromLeft(kS * 4 + gap * 3 + 30));
     auto pA = preDriveGroup.getBounds().reduced(15).withTrimmedTop(15);
 
     auto pR1 = pA.removeFromTop(kS);
@@ -134,15 +127,15 @@ void MultiOtoAudioProcessorEditor::resized() {
     xLow.setBounds(pR2.removeFromLeft(kS)); pR2.removeFromLeft(gap);
     xHigh.setBounds(pR2.removeFromLeft(kS));
 
-    topArea.removeFromLeft(60); // グループ間の余白
+    topArea.removeFromLeft(40);
 
-    masterGroup.setBounds(topArea.removeFromLeft(360));
+    masterGroup.setBounds(topArea.removeFromLeft(330));
     auto mA = masterGroup.getBounds().reduced(15).withTrimmedTop(15);
 
     auto mR1 = mA.removeFromTop(kS);
     postHPF.setBounds(mR1.removeFromLeft(kS)); mR1.removeFromLeft(gap);
     postLPF.setBounds(mR1.removeFromLeft(kS)); mR1.removeFromLeft(gap);
-    phaseModeBox.setBounds(mR1.removeFromLeft(120).withSizeKeepingCentre(130, 28).translated(0, -5));
+    phaseModeBox.setBounds(mR1.removeFromLeft(120).withSizeKeepingCentre(110, 28).translated(-5, -5));
 
     auto mR2 = mA.removeFromTop(kS);
     dryWet.setBounds(mR2.removeFromLeft(kS)); mR2.removeFromLeft(gap);
@@ -151,9 +144,6 @@ void MultiOtoAudioProcessorEditor::resized() {
 
     area.removeFromTop(10);
 
-    // ==========================================
-    // Stage レイアウト関数 (全開フラット表示)
-    // ==========================================
     auto layoutS = [&](juce::GroupComponent& g, juce::TextButton& onBtn,
         ArcKnob& gL, ArcKnob& gM, ArcKnob& gH, ArcKnob& time,
         ArcKnob& dL, ArcKnob& dM, ArcKnob& dH, ArcKnob& mix,
@@ -163,13 +153,12 @@ void MultiOtoAudioProcessorEditor::resized() {
             g.setBounds(b);
             auto sA = b.reduced(15).withTrimmedTop(15);
 
-            // 左端カラム: ONボタン (上下中央配置)
             auto btnCol = sA.removeFromLeft(kS);
             onBtn.setBounds(btnCol.withSizeKeepingCentre(60, 24));
 
             sA.removeFromLeft(gap);
 
-            // 7列分のノブ領域を完全にフラットに描画
+            // 全7カラムのノブを平坦に並べる (7 * 90) + (6 * 15) = 630px + 90px = 720px
             auto bA = sA.removeFromLeft(kS * 7 + gap * 6);
 
             auto bR1 = bA.removeFromTop(kS);
@@ -196,7 +185,7 @@ void MultiOtoAudioProcessorEditor::resized() {
         s1DepthL, s1DepthM, s1DepthH, s1Mix,
         s1AtkL, s1AtkM, s1AtkH,
         s1RelL, s1RelM, s1RelH,
-        area.removeFromTop(230));
+        area.removeFromTop(210));
 
     area.removeFromTop(10);
 
@@ -205,5 +194,5 @@ void MultiOtoAudioProcessorEditor::resized() {
         s2DepthL, s2DepthM, s2DepthH, s2Mix,
         s2AtkL, s2AtkM, s2AtkH,
         s2RelL, s2RelM, s2RelH,
-        area.removeFromTop(230));
+        area.removeFromTop(210));
 }
