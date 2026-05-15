@@ -8,7 +8,7 @@ public:
     ~MultiOtoAudioProcessorEditor() override;
     void paint(juce::Graphics&) override;
     void resized() override;
-    void buttonClicked(juce::Button* button) override;
+    void buttonClicked(juce::Button* b) override;
 
 private:
     MultiOtoAudioProcessor& audioProcessor;
@@ -16,14 +16,16 @@ private:
 
     juce::GroupComponent preDriveGroup, stage1Group, stage2Group, masterGroup;
 
-    // 【追加】トグルボタン
-    juce::ToggleButton preDriveToggle{ "PRE-DRIVE" };
-    juce::ToggleButton stage1Toggle{ "STAGE 1" };
-    juce::ToggleButton stage2Toggle{ "STAGE 2" };
+    // --- 今回のエラーの原因：ここのボタン宣言が抜けていました ---
+    juce::TextButton preDriveBtn{ "ON" };
+    juce::TextButton stage1Btn{ "ON" };
+    juce::TextButton stage2Btn{ "ON" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> preDriveAt, s1At, s2At;
 
-    juce::TextButton s1AdvBtn{ "ADVANCED" }, s2AdvBtn{ "ADVANCED" };
+    juce::TextButton s1AdvBtn{ "ADVANCED" };
+    juce::TextButton s2AdvBtn{ "ADVANCED" };
     bool s1AdvOpen = false, s2AdvOpen = false;
+    // -----------------------------------------------------------
 
     juce::ComboBox totalOttBox;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> totalOttAttachment;

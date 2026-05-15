@@ -1,58 +1,100 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor(MultiOtoAudioProcessor& p)
-    : AudioProcessorEditor(&p), audioProcessor(p) {
-
+MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor(MultiOtoAudioProcessor& p) : AudioProcessorEditor(&p), audioProcessor(p) {
     setOpaque(true);
     auto& apvts = audioProcessor.apvts;
 
-    // トグルボタンのアタッチメント
-    preDriveToggle.setLookAndFeel(&laf); addAndMakeVisible(preDriveToggle);
-    stage1Toggle.setLookAndFeel(&laf); addAndMakeVisible(stage1Toggle);
-    stage2Toggle.setLookAndFeel(&laf); addAndMakeVisible(stage2Toggle);
-    preDriveAt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, "predrive_on", preDriveToggle);
-    s1At = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, "s1_on", stage1Toggle);
-    s2At = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, "s2_on", stage2Toggle);
+    auto setupBtn = [&](juce::TextButton& b, const char* pID, std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>& a) {
+        b.setClickingTogglesState(true);
+        b.setColour(juce::TextButton::buttonColourId, MultiOtoColors::Surface);
+        b.setColour(juce::TextButton::buttonOnColourId, MultiOtoColors::Accent);
+        b.setColour(juce::TextButton::textColourOffId, MultiOtoColors::TextSecondary);
+        b.setColour(juce::TextButton::textColourOnId, MultiOtoColors::Background);
+        addAndMakeVisible(b);
+        a = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, pID, b);
+        };
 
-    totalOttBox.addItemList({ "2", "4", "8", "16", "32", "64" }, 1);
-    totalOttBox.setLookAndFeel(&laf); totalOttBox.setJustificationType(juce::Justification::centred); addAndMakeVisible(totalOttBox);
+    setupBtn(preDriveBtn, "predrive_on", preDriveAt);
+    setupBtn(stage1Btn, "s1_on", s1At);
+    setupBtn(stage2Btn, "s2_on", s2At);
+
+    totalOttBox.addItemList({ "2","4","8","16","32","64" }, 1);
+    totalOttBox.setLookAndFeel(&laf);
+    addAndMakeVisible(totalOttBox);
     totalOttAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "total_ott", totalOttBox);
-    totalOttLabel.setText("COUNT", juce::dontSendNotification); totalOttLabel.setJustificationType(juce::Justification::centred); totalOttLabel.setColour(juce::Label::textColourId, MultiOtoColors::TextSecondary); addAndMakeVisible(totalOttLabel);
 
-    inGain.build(apvts, "in_gain", "IN", this, laf); drive.build(apvts, "drive", "DRIVE", this, laf); oddBlend.build(apvts, "odd_blend", "ODD", this, laf); evenBlend.build(apvts, "even_blend", "EVEN", this, laf);
-    xLow.build(apvts, "xover_low", "LOW X", this, laf); xHigh.build(apvts, "xover_high", "HIGH X", this, laf);
+    totalOttLabel.setText("COUNT", juce::dontSendNotification);
+    totalOttLabel.setColour(juce::Label::textColourId, MultiOtoColors::TextSecondary);
+    totalOttLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(totalOttLabel);
 
-    s1GainH.build(apvts, "s1_gain_h", "HI G", this, laf); s1GainM.build(apvts, "s1_gain_m", "MID G", this, laf); s1GainL.build(apvts, "s1_gain_l", "LOW G", this, laf);
-    s1DepthH.build(apvts, "s1_depth_h", "HI D", this, laf); s1DepthM.build(apvts, "s1_depth_m", "MID D", this, laf); s1DepthL.build(apvts, "s1_depth_l", "LOW D", this, laf);
-    s1Time.build(apvts, "s1_time", "TIME", this, laf); s1Mix.build(apvts, "s1_mix", "MIX", this, laf);
-    s1AtkH.build(apvts, "s1_atk_h", "ATK H", this, laf); s1AtkM.build(apvts, "s1_atk_m", "ATK M", this, laf); s1AtkL.build(apvts, "s1_atk_l", "ATK L", this, laf);
-    s1RelH.build(apvts, "s1_rel_h", "REL H", this, laf); s1RelM.build(apvts, "s1_rel_m", "REL M", this, laf); s1RelL.build(apvts, "s1_rel_l", "REL L", this, laf);
+    inGain.build(apvts, "in_gain", "IN", this, laf);
+    drive.build(apvts, "drive", "DRIVE", this, laf);
+    oddBlend.build(apvts, "odd_blend", "ODD", this, laf);
+    evenBlend.build(apvts, "even_blend", "EVEN", this, laf);
+    xLow.build(apvts, "xover_low", "LOW X", this, laf);
+    xHigh.build(apvts, "xover_high", "HIGH X", this, laf);
 
-    s2GainH.build(apvts, "s2_gain_h", "HI G", this, laf); s2GainM.build(apvts, "s2_gain_m", "MID G", this, laf); s2GainL.build(apvts, "s2_gain_l", "LOW G", this, laf);
-    s2DepthH.build(apvts, "s2_depth_h", "HI D", this, laf); s2DepthM.build(apvts, "s2_depth_m", "MID D", this, laf); s2DepthL.build(apvts, "s2_depth_l", "LOW D", this, laf);
-    s2Time.build(apvts, "s2_time", "TIME", this, laf); s2Mix.build(apvts, "s2_mix", "MIX", this, laf);
-    s2AtkH.build(apvts, "s2_atk_h", "ATK H", this, laf); s2AtkM.build(apvts, "s2_atk_m", "ATK M", this, laf); s2AtkL.build(apvts, "s2_atk_l", "ATK L", this, laf);
-    s2RelH.build(apvts, "s2_rel_h", "REL H", this, laf); s2RelM.build(apvts, "s2_rel_m", "REL M", this, laf); s2RelL.build(apvts, "s2_rel_l", "REL L", this, laf);
+    s1GainL.build(apvts, "s1_gain_l", "LOW G", this, laf);
+    s1GainM.build(apvts, "s1_gain_m", "MID G", this, laf);
+    s1GainH.build(apvts, "s1_gain_h", "HI G", this, laf);
+    s1DepthL.build(apvts, "s1_depth_l", "LOW D", this, laf);
+    s1DepthM.build(apvts, "s1_depth_m", "MID D", this, laf);
+    s1DepthH.build(apvts, "s1_depth_h", "HI D", this, laf);
+    s1Time.build(apvts, "s1_time", "TIME", this, laf);
+    s1Mix.build(apvts, "s1_mix", "MIX", this, laf);
+    s1AtkL.build(apvts, "s1_atk_l", "ATK L", this, laf);
+    s1AtkM.build(apvts, "s1_atk_m", "ATK M", this, laf);
+    s1AtkH.build(apvts, "s1_atk_h", "ATK H", this, laf);
+    s1RelL.build(apvts, "s1_rel_l", "REL L", this, laf);
+    s1RelM.build(apvts, "s1_rel_m", "REL M", this, laf);
+    s1RelH.build(apvts, "s1_rel_h", "REL H", this, laf);
 
-    postHPF.build(apvts, "post_hpf", "HPF", this, laf); postLPF.build(apvts, "post_lpf", "LPF", this, laf);
-    dryWet.build(apvts, "dry_wet", "MIX", this, laf); outGain.build(apvts, "out_gain", "OUT", this, laf); limitCeil.build(apvts, "limit_ceil", "CEIL", this, laf);
+    s2GainL.build(apvts, "s2_gain_l", "LOW G", this, laf);
+    s2GainM.build(apvts, "s2_gain_m", "MID G", this, laf);
+    s2GainH.build(apvts, "s2_gain_h", "HI G", this, laf);
+    s2DepthL.build(apvts, "s2_depth_l", "LOW D", this, laf);
+    s2DepthM.build(apvts, "s2_depth_m", "MID D", this, laf);
+    s2DepthH.build(apvts, "s2_depth_h", "HI D", this, laf);
+    s2Time.build(apvts, "s2_time", "TIME", this, laf);
+    s2Mix.build(apvts, "s2_mix", "MIX", this, laf);
+    s2AtkL.build(apvts, "s2_atk_l", "ATK L", this, laf);
+    s2AtkM.build(apvts, "s2_atk_m", "ATK M", this, laf);
+    s2AtkH.build(apvts, "s2_atk_h", "ATK H", this, laf);
+    s2RelL.build(apvts, "s2_rel_l", "REL L", this, laf);
+    s2RelM.build(apvts, "s2_rel_m", "REL M", this, laf);
+    s2RelH.build(apvts, "s2_rel_h", "REL H", this, laf);
 
-    phaseModeBox.addItemList({ "COLOR PHASE", "ALIGN PHASE" }, 1); phaseModeBox.setLookAndFeel(&laf); phaseModeBox.setJustificationType(juce::Justification::centred); addAndMakeVisible(phaseModeBox);
+    postHPF.build(apvts, "post_hpf", "HPF", this, laf);
+    postLPF.build(apvts, "post_lpf", "LPF", this, laf);
+    dryWet.build(apvts, "dry_wet", "MIX", this, laf);
+    outGain.build(apvts, "out_gain", "OUT", this, laf);
+    limitCeil.build(apvts, "limit_ceil", "CEIL", this, laf);
+
+    phaseModeBox.addItemList({ "COLOR PHASE", "ALIGN PHASE" }, 1);
+    phaseModeBox.setLookAndFeel(&laf);
+    phaseModeBox.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(phaseModeBox);
     phaseModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "phase_mode", phaseModeBox);
 
-    addAndMakeVisible(preDriveGroup); preDriveGroup.setText(""); // タイトルはトグルボタンに任せる
-    addAndMakeVisible(stage1Group); stage1Group.setText("");
-    addAndMakeVisible(stage2Group); stage2Group.setText("");
+    addAndMakeVisible(preDriveGroup); preDriveGroup.setText("PRE-DRIVE & X-OVER");
+    addAndMakeVisible(stage1Group); stage1Group.setText("STAGE 1");
+    addAndMakeVisible(stage2Group); stage2Group.setText("STAGE 2");
     addAndMakeVisible(masterGroup); masterGroup.setText("MASTER");
 
-    s1AdvBtn.addListener(this); addAndMakeVisible(s1AdvBtn); s2AdvBtn.addListener(this); addAndMakeVisible(s2AdvBtn);
-    setSize(1000, 650);
+    s1AdvBtn.addListener(this); addAndMakeVisible(s1AdvBtn);
+    s2AdvBtn.addListener(this); addAndMakeVisible(s2AdvBtn);
+    s1AdvBtn.setColour(juce::TextButton::buttonColourId, MultiOtoColors::Surface);
+    s2AdvBtn.setColour(juce::TextButton::buttonColourId, MultiOtoColors::Surface);
+
+    setSize(1000, 680);
 }
 
 MultiOtoAudioProcessorEditor::~MultiOtoAudioProcessorEditor() {
-    preDriveToggle.setLookAndFeel(nullptr); stage1Toggle.setLookAndFeel(nullptr); stage2Toggle.setLookAndFeel(nullptr);
-    totalOttBox.setLookAndFeel(nullptr); phaseModeBox.setLookAndFeel(nullptr); removeAllChildren();
+    totalOttBox.setLookAndFeel(nullptr);
+    phaseModeBox.setLookAndFeel(nullptr);
+    removeAllChildren();
 }
 
 void MultiOtoAudioProcessorEditor::buttonClicked(juce::Button* b) {
@@ -62,80 +104,130 @@ void MultiOtoAudioProcessorEditor::buttonClicked(juce::Button* b) {
 }
 
 void MultiOtoAudioProcessorEditor::paint(juce::Graphics& g) {
-    juce::ColourGradient grad(juce::Colour(0xFF170801), 0.0f, 0.0f, juce::Colour(0xFF1c0901), 0.0f, (float)getHeight(), false);
-    g.setGradientFill(grad); g.fillAll();
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xFF170801), 0, 0, juce::Colour(0xFF1c0901), 0, (float)getHeight(), false));
+    g.fillAll();
 }
 
 void MultiOtoAudioProcessorEditor::resized() {
     auto area = getLocalBounds().reduced(20);
-    int kw = 70; int kh = 85;
+    int kS = 90; // ノブのサイズを90pxに完全統一
+    int gap = 15; // 横の隙間
 
-    auto headerRow = area.removeFromTop(130);
-    preDriveGroup.setBounds(headerRow.removeFromLeft(430));
-    preDriveToggle.setBounds(preDriveGroup.getBounds().getX() + 10, preDriveGroup.getBounds().getY() - 2, 100, 20);
+    // ==========================================
+    // 上段エリア (PreDrive & Master)
+    // ==========================================
+    auto topArea = area.removeFromTop(210);
 
-    auto preArea = preDriveGroup.getBounds().reduced(15).withTrimmedTop(15);
-    inGain.setBounds(preArea.removeFromLeft(kw)); preArea.removeFromLeft(10);
-    drive.setBounds(preArea.removeFromLeft(kw)); preArea.removeFromLeft(10);
-    oddBlend.setBounds(preArea.removeFromLeft(kw)); preArea.removeFromLeft(10);
-    evenBlend.setBounds(preArea.removeFromLeft(kw)); preArea.removeFromLeft(10);
+    // PreDriveエリア (左側)
+    preDriveGroup.setBounds(topArea.removeFromLeft(kS * 4 + gap * 3 + 30));
+    auto pA = preDriveGroup.getBounds().reduced(15).withTrimmedTop(15);
 
-    auto countArea = preArea.removeFromLeft(kw);
+    // PreDrive 1段目: In, Drive, ODD, Even
+    auto pR1 = pA.removeFromTop(kS);
+    inGain.setBounds(pR1.removeFromLeft(kS)); pR1.removeFromLeft(gap);
+    drive.setBounds(pR1.removeFromLeft(kS)); pR1.removeFromLeft(gap);
+    oddBlend.setBounds(pR1.removeFromLeft(kS)); pR1.removeFromLeft(gap);
+    evenBlend.setBounds(pR1.removeFromLeft(kS));
+
+    // PreDrive 2段目: ONボタン, Count(Combo), LowX, HighX
+    auto pR2 = pA.removeFromTop(kS);
+    preDriveBtn.setBounds(pR2.removeFromLeft(kS).withSizeKeepingCentre(60, 24));
+    pR2.removeFromLeft(gap);
+
+    auto countArea = pR2.removeFromLeft(kS);
     totalOttBox.setBounds(countArea.withSizeKeepingCentre(60, 22).translated(0, -5));
     totalOttLabel.setBounds(countArea.withSizeKeepingCentre(60, 15).translated(0, 15));
+    pR2.removeFromLeft(gap);
 
-    headerRow.removeFromLeft(30);
-    auto xArea = headerRow.removeFromLeft(160).withTrimmedTop(25);
-    xLow.setBounds(xArea.removeFromLeft(kw)); xArea.removeFromLeft(20); xHigh.setBounds(xArea.removeFromLeft(kw));
+    xLow.setBounds(pR2.removeFromLeft(kS)); pR2.removeFromLeft(gap);
+    xHigh.setBounds(pR2.removeFromLeft(kS));
 
-    area.removeFromTop(10);
-    auto rightArea = area.removeFromRight(290); area.removeFromRight(20);
+    topArea.removeFromLeft(20); // グループ間の余白
 
-    masterGroup.setBounds(rightArea.withHeight(280));
-    auto mArea = masterGroup.getBounds().reduced(15).withTrimmedTop(20);
-    auto mRow1 = mArea.removeFromTop(kh); mArea.removeFromTop(10);
-    auto mRow2 = mArea.removeFromTop(kh); mArea.removeFromTop(20);
-    auto mRow3 = mArea.removeFromTop(24);
+    // Masterエリア (右側)
+    masterGroup.setBounds(topArea);
+    auto mA = masterGroup.getBounds().reduced(15).withTrimmedTop(15);
 
-    postHPF.setBounds(mRow1.removeFromLeft(kw)); mRow1.removeFromLeft(20); postLPF.setBounds(mRow1.removeFromLeft(kw));
-    dryWet.setBounds(mRow2.removeFromLeft(kw)); mRow2.removeFromLeft(10); limitCeil.setBounds(mRow2.removeFromLeft(kw)); mRow2.removeFromLeft(10); outGain.setBounds(mRow2.removeFromLeft(kw));
-    phaseModeBox.setBounds(mRow3.withSizeKeepingCentre(160, 24));
+    auto mR1 = mA.removeFromTop(kS);
+    postHPF.setBounds(mR1.removeFromLeft(kS)); mR1.removeFromLeft(gap);
+    postLPF.setBounds(mR1.removeFromLeft(kS)); mR1.removeFromLeft(gap);
+    phaseModeBox.setBounds(mR1.removeFromLeft(110).withSizeKeepingCentre(110, 24).translated(0, -5));
 
-    auto layoutStage = [&](juce::GroupComponent& group, juce::ToggleButton& toggle, bool open, ArcKnob& gH, ArcKnob& gM, ArcKnob& gL, ArcKnob& dH, ArcKnob& dM, ArcKnob& dL, ArcKnob& time, ArcKnob& mix, ArcKnob& aH, ArcKnob& aM, ArcKnob& aL, ArcKnob& rH, ArcKnob& rM, ArcKnob& rL, juce::TextButton& btn, juce::Rectangle<int> bounds) {
-        group.setBounds(bounds);
-        toggle.setBounds(bounds.getX() + 10, bounds.getY() - 2, 100, 20);
-        btn.setBounds(bounds.getRight() - 90, bounds.getY() + 8, 80, 20);
+    auto mR2 = mA.removeFromTop(kS);
+    dryWet.setBounds(mR2.removeFromLeft(kS)); mR2.removeFromLeft(gap);
+    limitCeil.setBounds(mR2.removeFromLeft(kS)); mR2.removeFromLeft(gap);
+    outGain.setBounds(mR2.removeFromLeft(kS));
 
-        auto sArea = bounds.reduced(15).withTrimmedTop(20);
-        auto basicArea = sArea.removeFromLeft(230);
-        auto bRow1 = basicArea.removeFromTop(kh); basicArea.removeFromTop(10);
-        auto bRow2 = basicArea.removeFromTop(kh);
-        gL.setBounds(bRow1.removeFromLeft(kw)); bRow1.removeFromLeft(10); gM.setBounds(bRow1.removeFromLeft(kw)); bRow1.removeFromLeft(10); gH.setBounds(bRow1.removeFromLeft(kw));
-        dL.setBounds(bRow2.removeFromLeft(kw)); bRow2.removeFromLeft(10); dM.setBounds(bRow2.removeFromLeft(kw)); bRow2.removeFromLeft(10); dH.setBounds(bRow2.removeFromLeft(kw));
+    area.removeFromTop(10); // 上段とStage間の余白
 
-        sArea.removeFromLeft(20);
+    // ==========================================
+    // Stage レイアウト用ラムダ (配列ポインタを使わず、愚直に参照渡し)
+    // ==========================================
+    auto layoutS = [&](juce::GroupComponent& g, juce::TextButton& onBtn, juce::TextButton& advBtn, bool open,
+        ArcKnob& gL, ArcKnob& gM, ArcKnob& gH, ArcKnob& time,
+        ArcKnob& dL, ArcKnob& dM, ArcKnob& dH, ArcKnob& mix,
+        ArcKnob& aL, ArcKnob& aM, ArcKnob& aH,
+        ArcKnob& rL, ArcKnob& rM, ArcKnob& rH,
+        juce::Rectangle<int> b) {
+            g.setBounds(b);
+            auto sA = b.reduced(15).withTrimmedTop(15);
 
-        // Time と Mix を縦に並べる
-        auto timeMixArea = sArea.removeFromLeft(kw);
-        time.setBounds(timeMixArea.removeFromTop(kh));
-        timeMixArea.removeFromTop(10);
-        mix.setBounds(timeMixArea.removeFromTop(kh));
+            // 左端カラム: ONボタン(1段目), ADVANCEDボタン(2段目)
+            auto btnCol = sA.removeFromLeft(80);
+            onBtn.setBounds(btnCol.removeFromTop(kS).withSizeKeepingCentre(60, 24));
+            advBtn.setBounds(btnCol.removeFromTop(kS).withSizeKeepingCentre(80, 24));
 
-        sArea.removeFromLeft(30);
-        aL.setVisible(open); aM.setVisible(open); aH.setVisible(open);
-        rL.setVisible(open); rM.setVisible(open); rH.setVisible(open);
+            sA.removeFromLeft(35); // ボタンとBasicノブ間の余白
 
-        if (open) {
-            auto advArea = sArea.removeFromLeft(230);
-            auto aRow1 = advArea.removeFromTop(kh); advArea.removeFromTop(10);
-            auto aRow2 = advArea.removeFromTop(kh);
-            aL.setBounds(aRow1.removeFromLeft(kw)); aRow1.removeFromLeft(10); aM.setBounds(aRow1.removeFromLeft(kw)); aRow1.removeFromLeft(10); aH.setBounds(aRow1.removeFromLeft(kw));
-            rL.setBounds(aRow2.removeFromLeft(kw)); aRow2.removeFromLeft(10); rM.setBounds(aRow2.removeFromLeft(kw)); aRow2.removeFromLeft(10); rH.setBounds(aRow2.removeFromLeft(kw));
-        }
+            // Basicカラム: 4つのノブ × 2段
+            auto basicCol = sA.removeFromLeft(kS * 4 + gap * 3);
+
+            auto bR1 = basicCol.removeFromTop(kS);
+            gL.setBounds(bR1.removeFromLeft(kS)); bR1.removeFromLeft(gap);
+            gM.setBounds(bR1.removeFromLeft(kS)); bR1.removeFromLeft(gap);
+            gH.setBounds(bR1.removeFromLeft(kS)); bR1.removeFromLeft(gap);
+            time.setBounds(bR1.removeFromLeft(kS));
+
+            auto bR2 = basicCol.removeFromTop(kS);
+            dL.setBounds(bR2.removeFromLeft(kS)); bR2.removeFromLeft(gap);
+            dM.setBounds(bR2.removeFromLeft(kS)); bR2.removeFromLeft(gap);
+            dH.setBounds(bR2.removeFromLeft(kS)); bR2.removeFromLeft(gap);
+            mix.setBounds(bR2.removeFromLeft(kS));
+
+            sA.removeFromLeft(45); // BasicとAdvanced間の余白 (右側の無駄な余白を消すために拡張)
+
+            aL.setVisible(open); aM.setVisible(open); aH.setVisible(open);
+            rL.setVisible(open); rM.setVisible(open); rH.setVisible(open);
+
+            if (open) {
+                auto advCol = sA.removeFromLeft(kS * 3 + gap * 2);
+
+                auto aR1 = advCol.removeFromTop(kS);
+                aL.setBounds(aR1.removeFromLeft(kS)); aR1.removeFromLeft(gap);
+                aM.setBounds(aR1.removeFromLeft(kS)); aR1.removeFromLeft(gap);
+                aH.setBounds(aR1.removeFromLeft(kS));
+
+                auto aR2 = advCol.removeFromTop(kS);
+                rL.setBounds(aR2.removeFromLeft(kS)); aR2.removeFromLeft(gap);
+                rM.setBounds(aR2.removeFromLeft(kS)); aR2.removeFromLeft(gap);
+                rH.setBounds(aR2.removeFromLeft(kS));
+            }
         };
 
-    auto stage1Bounds = area.removeFromTop(230); area.removeFromTop(10);
-    auto stage2Bounds = area.removeFromTop(230);
-    layoutStage(stage1Group, stage1Toggle, s1AdvOpen, s1GainH, s1GainM, s1GainL, s1DepthH, s1DepthM, s1DepthL, s1Time, s1Mix, s1AtkH, s1AtkM, s1AtkL, s1RelH, s1RelM, s1RelL, s1AdvBtn, stage1Bounds);
-    layoutStage(stage2Group, stage2Toggle, s2AdvOpen, s2GainH, s2GainM, s2GainL, s2DepthH, s2DepthM, s2DepthL, s2Time, s2Mix, s2AtkH, s2AtkM, s2AtkL, s2RelH, s2RelM, s2RelL, s2AdvBtn, stage2Bounds);
+    // Stage 1 と Stage 2 の描画
+    layoutS(stage1Group, stage1Btn, s1AdvBtn, s1AdvOpen,
+        s1GainL, s1GainM, s1GainH, s1Time,
+        s1DepthL, s1DepthM, s1DepthH, s1Mix,
+        s1AtkL, s1AtkM, s1AtkH,
+        s1RelL, s1RelM, s1RelH,
+        area.removeFromTop(210));
+
+    area.removeFromTop(10);
+
+    layoutS(stage2Group, stage2Btn, s2AdvBtn, s2AdvOpen,
+        s2GainL, s2GainM, s2GainH, s2Time,
+        s2DepthL, s2DepthM, s2DepthH, s2Mix,
+        s2AtkL, s2AtkM, s2AtkH,
+        s2RelL, s2RelM, s2RelH,
+        area.removeFromTop(210));
 }
