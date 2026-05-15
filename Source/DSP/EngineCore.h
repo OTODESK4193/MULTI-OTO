@@ -13,8 +13,11 @@ struct EngineParams {
     float s2_gain[3], s2_depth[3], s2_time, s2_atk[3], s2_rel[3];
     float post_hpf, post_lpf;
     float dryWet, outGain, limitCeil;
-    int total_ott_count; // Choice index から変換された実際の段数 (2,4,8,16,32,64)
-    int phase_mode;      // 0: Color, 1: Align
+    int total_ott_count, phase_mode;
+
+    // 【追加】バイパスとMix
+    bool predrive_on, s1_on, s2_on;
+    float s1_mix, s2_mix;
 };
 
 class EngineCore {
@@ -37,7 +40,6 @@ private:
     juce::SmoothedValue<float> outGainSmoother;
 
     EngineParams currentParams;
-
     Crossover crossover;
 
     juce::dsp::StateVariableTPTFilter<float> preLpfL, preLpfR;
@@ -49,11 +51,8 @@ private:
     juce::AudioBuffer<float> dryBuffer;
 
     ADAASaturator satL, satR;
-
-    float limiterEnvL = 0.0f;
-    float limiterEnvR = 0.0f;
-    float limiterReleaseCoef = 0.0f;
-    float currentLimitThreshold = 0.988f;
+    float limiterEnvL = 0.0f; float limiterEnvR = 0.0f;
+    float limiterReleaseCoef = 0.0f; float currentLimitThreshold = 0.988f;
 
     double currentSampleRate = 48000.0;
     std::atomic<bool> isPrepared{ false };

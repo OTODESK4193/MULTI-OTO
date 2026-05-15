@@ -15,10 +15,16 @@ private:
     MultiOtoLookAndFeel laf;
 
     juce::GroupComponent preDriveGroup, stage1Group, stage2Group, masterGroup;
+
+    // 【追加】トグルボタン
+    juce::ToggleButton preDriveToggle{ "PRE-DRIVE" };
+    juce::ToggleButton stage1Toggle{ "STAGE 1" };
+    juce::ToggleButton stage2Toggle{ "STAGE 2" };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> preDriveAt, s1At, s2At;
+
     juce::TextButton s1AdvBtn{ "ADVANCED" }, s2AdvBtn{ "ADVANCED" };
     bool s1AdvOpen = false, s2AdvOpen = false;
 
-    // 【修正】totalOtt を ComboBox に変更
     juce::ComboBox totalOttBox;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> totalOttAttachment;
     juce::Label totalOttLabel;
@@ -26,10 +32,10 @@ private:
     ArcKnob inGain, drive, oddBlend, evenBlend;
     ArcKnob xLow, xHigh;
 
-    ArcKnob s1GainH, s1GainM, s1GainL, s1DepthH, s1DepthM, s1DepthL, s1Time;
+    ArcKnob s1GainH, s1GainM, s1GainL, s1DepthH, s1DepthM, s1DepthL, s1Time, s1Mix;
     ArcKnob s1AtkH, s1AtkM, s1AtkL, s1RelH, s1RelM, s1RelL;
 
-    ArcKnob s2GainH, s2GainM, s2GainL, s2DepthH, s2DepthM, s2DepthL, s2Time;
+    ArcKnob s2GainH, s2GainM, s2GainL, s2DepthH, s2DepthM, s2DepthL, s2Time, s2Mix;
     ArcKnob s2AtkH, s2AtkM, s2AtkL, s2RelH, s2RelM, s2RelL;
 
     ArcKnob postHPF, postLPF, dryWet, outGain, limitCeil;

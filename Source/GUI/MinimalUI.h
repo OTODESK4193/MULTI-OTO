@@ -17,9 +17,14 @@ namespace MultiOtoColors {
 class MultiOtoLookAndFeel : public juce::LookAndFeel_V4 {
 public:
     MultiOtoLookAndFeel();
-    void drawRotarySlider(juce::Graphics&, int x, int y, int w, int h, float sliderPos, float startAngle, float endAngle, juce::Slider&) override;
-    void drawGroupComponentOutline(juce::Graphics&, int w, int h, const juce::String&, const juce::Justification&, juce::GroupComponent&) override;
-    juce::Font getLabelFont(juce::Label&) override { return juce::Font(juce::FontOptions(10.0f, juce::Font::bold)); }
+
+    void drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, float sliderPos, float startAngle, float endAngle, juce::Slider& slider) override;
+    void drawGroupComponentOutline(juce::Graphics& g, int w, int h, const juce::String& text, const juce::Justification& justification, juce::GroupComponent& group) override;
+    void drawToggleButton(juce::Graphics& g, juce::ToggleButton& button, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override;
+    juce::Font getLabelFont(juce::Label&) override;
+
+private:
+    juce::Font groupFont;
 };
 
 struct ArcKnob {
@@ -27,34 +32,8 @@ struct ArcKnob {
     juce::Label label;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
 
-    void build(juce::AudioProcessorValueTreeState& apvts, const juce::String& paramID, const juce::String& labelText, juce::Component* parent, MultiOtoLookAndFeel& laf) {
-        slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 12);
-        slider.setLookAndFeel(&laf);
-        slider.setColour(juce::Slider::textBoxTextColourId, MultiOtoColors::TextSecondary);
-        slider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
-        parent->addAndMakeVisible(slider);
-
-        label.setText(labelText, juce::dontSendNotification);
-        label.setJustificationType(juce::Justification::centred);
-        label.setColour(juce::Label::textColourId, MultiOtoColors::TextSecondary);
-        parent->addAndMakeVisible(label);
-
-        attachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, paramID, slider);
-    }
-
-    void setBounds(int x, int y, int w, int h) {
-        slider.setBounds(x, y, w, h - 15);
-        label.setBounds(x, y + h - 15, w, 15);
-    }
-
-    // juce::Rectangleを受け取るオーバーロードを追加
-    void setBounds(juce::Rectangle<int> rect) {
-        setBounds(rect.getX(), rect.getY(), rect.getWidth(), rect.getHeight());
-    }
-
-    void setVisible(bool v) {
-        slider.setVisible(v);
-        label.setVisible(v);
-    }
+    void build(juce::AudioProcessorValueTreeState& apvts, const juce::String& paramID, const juce::String& labelText, juce::Component* parent, MultiOtoLookAndFeel& laf);
+    void setBounds(int x, int y, int w, int h);
+    void setBounds(juce::Rectangle<int> rect);
+    void setVisible(bool v);
 };
