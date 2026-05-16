@@ -56,7 +56,7 @@ Authentic upward and downward compression algorithms tailored for extreme sound 
 
 ## Installation
 
-1. Download the latest `Multi-Oto.vst3` file from the [[Releases](https://www.google.com/search?q=%23)] page.
+1. Download the latest `Multi-Oto.vst3` file from the [[Releases](https://github.com/OTODESK4193/MULTI-OTO/releases/latest)] page.
 2. Move the `.vst3` file to your default Windows VST3 plugin directory:
 `C:\Program Files\Common Files\VST3`
 3. Rescan your plugins in Ableton Live.
