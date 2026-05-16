@@ -62,9 +62,9 @@ Authentic upward and downward compression algorithms tailored for extreme sound 
 
 A comprehensive manual covering detailed technical specifications and operational guidelines is included with this repository.
 
-[ ![Manual PDF (JP)](https://img.shields.io/badge/Manual-PDF_(JP)-red?style=for-the-badge&logo=adobe-acrobat-reader) ](./Source/Assets/MULTI-OTO_UserManual_EN.pdf)
+[ ![Manual PDF (JP)](https://img.shields.io/badge/Manual-PDF_(JP)-red?style=for-the-badge&logo=adobe-acrobat-reader) ](./Source/Assets/MULTI-OTO_UserManual_JP.pdf)
 
-[ ![Manual PDF (EN)](https://img.shields.io/badge/Manual-PDF_(EN)-red?style=for-the-badge&logo=adobe-acrobat-reader) ](./Source/Assets/MULTI-OTO_UserManual_JP.pdf)
+[ ![Manual PDF (EN)](https://img.shields.io/badge/Manual-PDF_(EN)-red?style=for-the-badge&logo=adobe-acrobat-reader) ](./Source/Assets/MULTI-OTO_UserManual_EN.pdf)
 
 
 ## Disclaimer & Stability
