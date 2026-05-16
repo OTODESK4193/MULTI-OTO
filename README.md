@@ -15,6 +15,9 @@
 
 Engineered specifically for modern electronic music genres like Color Bass, Riddim, and Neurofunk, MULTI-OTO excels at extracting microscopic textures, generating infinite spectral sweeps, and creating extreme phase-dispersion glitch effects that standard dynamics processors cannot achieve.
 
+👉 **[Watch the Demo Video on X (動作デモ動画はこちら！)](https://x.com/kijyoumusic/status/2055442936884826283?s=20)**
+
+
 ## Key Features
 
 ### 🎛️ Extreme Cascade Architecture
