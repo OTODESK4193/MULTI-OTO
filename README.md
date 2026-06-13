@@ -1,7 +1,7 @@
 # MULTI-OTO
 
 ![Release](https://img.shields.io/badge/release-v1.0-blue)
-![License](https://img.shields.io/badge/license-GPLv3-green)
+![License](https://img.shields.io/badge/license-AGPLv3-green)
 ![JUCE](https://img.shields.io/badge/JUCE-8.0.8-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20-lightgrey)
 ![Downloads](https://img.shields.io/github/downloads/OTODESK4193/MULTI-OTO/total.svg)
