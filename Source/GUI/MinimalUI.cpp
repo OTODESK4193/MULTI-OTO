@@ -12,11 +12,10 @@ MultiOtoLookAndFeel::MultiOtoLookAndFeel() : groupFont(juce::FontOptions(12.0f, 
 }
 
 void MultiOtoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, float sliderPos, float startAngle, float endAngle, juce::Slider&) {
-    // 見切れ完全防止のための十分なマージン (6.0px)
-    auto b = juce::Rectangle<float>((float)x, (float)y, (float)w, (float)h).reduced(6.0f);
+    auto b = juce::Rectangle<float>((float)x, (float)y, (float)w, (float)h).reduced(5.0f);
     float cx = b.getCentreX(), cy = b.getCentreY();
-    float r = juce::jmin(b.getWidth(), b.getHeight()) * 0.42f;   // バウンズ内に収まる適切なノブ半径
-    float th = r * 0.22f;                                        // アークの太さ
+    float r = juce::jmin(b.getWidth(), b.getHeight()) * 0.43f;
+    float th = r * 0.22f;
 
     // トラック
     juce::Path track; track.addCentredArc(cx, cy, r, r, 0.0f, startAngle, endAngle, true);
@@ -29,7 +28,7 @@ void MultiOtoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int 
     g.setGradientFill(juce::ColourGradient(MOColors::babyBlue, cx - r, cy, MOColors::accent, cx + r, cy, false));
     g.strokePath(fill, juce::PathStrokeType(th, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-    // 外側グロー (領域内に確実に収まるようにストロークを調整)
+    // 外側グロー
     if (sliderPos > 0.01f)
     {
         juce::Path glow; glow.addCentredArc(cx, cy, r + 2.0f, r + 2.0f, 0.0f, startAngle, angle, true);
@@ -73,7 +72,7 @@ juce::Font MultiOtoLookAndFeel::getPopupMenuFont() {
 
 void ArcKnob::build(juce::AudioProcessorValueTreeState& apvts, const juce::String& pID, const juce::String& lT, juce::Component* p, MultiOtoLookAndFeel& laf) {
     slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 72, 15);
+    slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 16);
     slider.setLookAndFeel(&laf);
     slider.setColour(juce::Slider::textBoxTextColourId, MOColors::text);
     slider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
@@ -83,14 +82,15 @@ void ArcKnob::build(juce::AudioProcessorValueTreeState& apvts, const juce::Strin
     label.setJustificationType(juce::Justification::centred);
     label.setColour(juce::Label::textColourId, MOColors::textDim);
     label.setFont(juce::Font(juce::FontOptions(11.0f, juce::Font::bold)));
+    label.setMinimumHorizontalScale(0.80f); // 省略「...」を防止して自動縮小
     p->addAndMakeVisible(label);
 
     attachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, pID, slider);
 }
 
 void ArcKnob::setBounds(int x, int y, int w, int h) {
-    slider.setBounds(x, y, w, h - 16);
-    label.setBounds(x - 6, y + h - 16, w + 12, 16);
+    slider.setBounds(x, y, w, h - 18);
+    label.setBounds(x - 8, y + h - 18, w + 16, 18);
 }
 void ArcKnob::setBounds(juce::Rectangle<int> r) { setBounds(r.getX(), r.getY(), r.getWidth(), r.getHeight()); }
 void ArcKnob::setVisible(bool v) { slider.setVisible(v); label.setVisible(v); }
