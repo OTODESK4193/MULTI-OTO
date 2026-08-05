@@ -84,13 +84,18 @@ void DynVisualComponent::mouseDown (const juce::MouseEvent& e)
     area.removeFromTop (22);
     float midY = area.getY() + area.getHeight() * 0.5f;
 
-    if (e.mods.isShiftDown())
+    // クリック位置・修飾キーによる目的パラメータの明確な分離
+    if (e.mods.isShiftDown() || e.mods.isAltDown())
     {
-        dragTarget = (e.y < midY) ? TargetUpward : TargetDownward;
+        dragTarget = TargetGain;
+    }
+    else if ((float) e.y < midY)
+    {
+        dragTarget = TargetUpward;    // 上半分 ➔ UPWARD のみ変更
     }
     else
     {
-        dragTarget = TargetGain;
+        dragTarget = TargetDownward;  // 下半分 ➔ DOWNWARD のみ変更
     }
 
     if (dragTarget == TargetGain && paramGain[draggedBand] != nullptr)
@@ -131,7 +136,7 @@ void DynVisualComponent::mouseDoubleClick (const juce::MouseEvent& e)
     int band = getBandAtPosition (e.getPosition());
     if (band != -1 && paramGain[band] != nullptr)
     {
-        paramGain[band]->setValueNotifyingHost (0.5f); // 0.0 dB
+        paramGain[band]->setValueNotifyingHost (0.5f); // 0.0 dB リセット
         repaint();
     }
 }
@@ -142,7 +147,6 @@ void DynVisualComponent::paint (juce::Graphics& g)
     auto bounds = getLocalBounds();
     MOColors::paintWell (g, bounds);
 
-    // 選択中の場合、全体枠を強調
     if (isSelected)
     {
         g.setColour (stage == 1 ? MOColors::peach : MOColors::babyBlue);
@@ -151,11 +155,10 @@ void DynVisualComponent::paint (juce::Graphics& g)
 
     auto area = bounds.reduced (8, 6);
 
-    // --- タイトル部 (ボタン表示) ---
+    // --- タイトル部 ---
     auto headerRow = area.removeFromTop (22);
     auto titleBtnArea = headerRow.removeFromLeft (130);
 
-    // ボタン背景
     g.setColour (isSelected ? (stage == 1 ? MOColors::peach.withAlpha (0.25f) : MOColors::babyBlue.withAlpha (0.25f))
                             : MOColors::knobTrack);
     g.fillRoundedRectangle (titleBtnArea.toFloat(), 3.0f);
@@ -164,7 +167,6 @@ void DynVisualComponent::paint (juce::Graphics& g)
     g.setColour (isSelected ? (stage == 1 ? MOColors::peach : MOColors::babyBlue) : MOColors::textDim);
     g.drawText (title, titleBtnArea, juce::Justification::centred);
 
-    // クロスオーバー周波数
     if (xoverLo != nullptr && xoverHi != nullptr)
     {
         g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)));
@@ -183,7 +185,6 @@ void DynVisualComponent::paint (juce::Graphics& g)
     int bandH  = area.getHeight();
     float midY = area.getY() + bandH * 0.5f;
 
-    // バンド別固有カラー定義
     const juce::Colour upColors[3] = { MOColors::bandLowUp, MOColors::bandMidUp, MOColors::bandHighUp };
     const juce::Colour dnColors[3] = { MOColors::bandLowDn, MOColors::bandMidDn, MOColors::bandHighDn };
 
@@ -192,7 +193,6 @@ void DynVisualComponent::paint (juce::Graphics& g)
         int bx = area.getX() + b * (bandW + 6);
         auto bandRect = juce::Rectangle<int> (bx, area.getY(), bandW, bandH);
 
-        // ホバー/ドラッグ時
         if (b == hoveredBand || b == draggedBand)
         {
             g.setColour (upColors[b].withAlpha (0.12f));
@@ -216,11 +216,10 @@ void DynVisualComponent::paint (juce::Graphics& g)
             g.fillRoundedRectangle (envRect.toFloat(), 3.0f);
         }
 
-        // Upward / Downward 設定値のシェードガイド描画
+        // Upward / Downward 設定値シェードガイド
         float upPct   = (paramUp[b] != nullptr)   ? paramUp[b]->getValue()   : 1.0f;
         float downPct = (paramDown[b] != nullptr) ? paramDown[b]->getValue() : 1.0f;
 
-        // Upward ガイド領域 (基準線より上)
         float maxUpH = (bandH * 0.42f) * upPct;
         if (maxUpH > 1.0f)
         {
@@ -231,7 +230,6 @@ void DynVisualComponent::paint (juce::Graphics& g)
             g.drawHorizontalLine ((int) (midY - maxUpH), (float) bx + 3, (float) (bx + bandW - 3));
         }
 
-        // Downward ガイド領域 (基準線より下)
         float maxDnH = (bandH * 0.42f) * downPct;
         if (maxDnH > 1.0f)
         {
@@ -246,12 +244,11 @@ void DynVisualComponent::paint (juce::Graphics& g)
         g.setColour (MOColors::grid.withAlpha (0.20f));
         g.drawHorizontalLine ((int) midY, (float) bx + 2, (float) (bx + bandW - 2));
 
-        // ゲイン変化バー (LOW/MID/HIGH 帯域別カラー)
+        // ゲイン変化バー
         float gainNorm = gainToNorm (smoothGainDb[b]);
 
         if (gainNorm > 0.01f)
         {
-            // Upward (基準線より上)
             float barH = gainNorm * (bandH * 0.42f);
             auto upRect = juce::Rectangle<float> (
                 (float) bx + 4, midY - barH, (float) bandW - 8, barH);
@@ -262,12 +259,11 @@ void DynVisualComponent::paint (juce::Graphics& g)
         }
         else if (gainNorm < -0.01f)
         {
-            // Downward (基準線より下)
             float barH = -gainNorm * (bandH * 0.42f);
             auto dnRect = juce::Rectangle<float> (
                 (float) bx + 4, midY, (float) bandW - 8, barH);
             g.setColour (dnColors[b].withAlpha (0.45f));
-            g.fillRoundedRectangle (dnRect, 2.0f);
+            g.fillRoundedRectangle (dnRect.toFloat(), 2.0f);
             g.setColour (dnColors[b]);
             g.fillRect (dnRect.getX(), dnRect.getBottom() - 2.0f, dnRect.getWidth(), 2.0f);
         }
@@ -285,7 +281,7 @@ void DynVisualComponent::paint (juce::Graphics& g)
         g.setColour (smoothGainDb[b] > 0.05f ? upColors[b] : (smoothGainDb[b] < -0.05f ? dnColors[b] : MOColors::textDim));
         g.drawText (dbStr, bx, area.getY() + 3, bandW, 16, juce::Justification::centred);
 
-        // バンド名 (LOW / MID / HIGH)
+        // バンド名
         g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)));
         g.setColour (upColors[b].withAlpha (0.9f));
         g.drawText (bandNames[b], bx, area.getY() + bandH - 16, bandW, 16, juce::Justification::centred);

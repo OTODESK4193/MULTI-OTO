@@ -5,8 +5,8 @@
 #include "GUI/MainPanel.h"
 
 // ============================================================================
-//  LIFT-X 準拠 ContentComponent パターン (1画面完全統合構造)
-//  内部は kBaseW (860px) × kBaseH (670px) の論理座標で動作
+//  LIFT-X 準拠 ContentComponent パターン (高密度1画面構造)
+//  内部は kBaseW (880px) × kBaseH (680px) の論理座標で動作
 // ============================================================================
 class MultiOtoAudioProcessorEditor : public juce::AudioProcessorEditor
 {
@@ -17,8 +17,8 @@ public:
     void resized() override;
 
 private:
-    static constexpr int kBaseW = 860;
-    static constexpr int kBaseH = 670;
+    static constexpr int kBaseW = 880;
+    static constexpr int kBaseH = 680;
 
     MultiOtoAudioProcessor& audioProcessor;
     MultiOtoLookAndFeel laf;

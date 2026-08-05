@@ -8,10 +8,14 @@
 struct StageMeter;
 
 // ============================================================================
-//  MainPanel — 1画面完全統合パネル (タブなし)
-//  上部: DynVisual (Stage1 & Stage2 横並び、タイトル部クリックでStage切替)
+//  MainPanel — 1画面統合パネル (高視認性大型ノブ ＆ 機能的上下対レイアウト)
+//  上部: DynVisual (Stage1 & Stage2 横並び、タイトルボタンでStage選択)
 //  中段: PRE-DRIVE & CROSSOVER + MASTER CONTROLS
-//  下段: STAGE CONTROLS (選択された Stage 1 または Stage 2 の全ノブ。REL H も完全描画)
+//  下段: STAGE CONTROLS
+//        ・GAIN (3)
+//        ・UPWARD / DOWNWARD (上下対 3×2)
+//        ・ATTACK / RELEASE (上下対 3×2, REL Hも完全描画)
+//        ・GLOBAL (TIME, MIX)
 // ============================================================================
 class MainPanel : public juce::Component
 {
@@ -167,75 +171,69 @@ public:
 
     void resized() override
     {
-        auto area = getLocalBounds().reduced (10, 6);
+        auto area = getLocalBounds().reduced (12, 8);
 
-        // 1. 上部 DynVisual (185px)
-        auto dynArea = area.removeFromTop (185);
+        // 1. 上部 DynVisual (高さ 190px)
+        auto dynArea = area.removeFromTop (190);
         int halfW = (dynArea.getWidth() - 10) / 2;
         dynS1.setBounds (dynArea.removeFromLeft (halfW));
         dynArea.removeFromLeft (10);
         dynS2.setBounds (dynArea.removeFromLeft (halfW));
 
-        area.removeFromTop (6);
+        area.removeFromTop (8);
 
-        int kS   = 72;   // ノブサイズ 72px
-        int gapX = 14;
+        int midKnobW = 76;
+        int midGapX  = 16;
 
-        // 2. 中段 PRE-DRIVE & MASTER (145px)
+        // 2. 中段 PRE-DRIVE & MASTER (高さ 150px)
         preLabel.setBounds (area.removeFromTop (16));
         area.removeFromTop (2);
 
-        auto preRow = area.removeFromTop (62);
-        inGain.setBounds    (preRow.removeFromLeft (kS)); preRow.removeFromLeft (gapX);
-        drive.setBounds     (preRow.removeFromLeft (kS)); preRow.removeFromLeft (gapX);
-        oddBlend.setBounds  (preRow.removeFromLeft (kS)); preRow.removeFromLeft (gapX);
-        evenBlend.setBounds (preRow.removeFromLeft (kS)); preRow.removeFromLeft (gapX + 10);
+        auto preRow = area.removeFromTop (60);
+        inGain.setBounds    (preRow.removeFromLeft (midKnobW)); preRow.removeFromLeft (midGapX);
+        drive.setBounds     (preRow.removeFromLeft (midKnobW)); preRow.removeFromLeft (midGapX);
+        oddBlend.setBounds  (preRow.removeFromLeft (midKnobW)); preRow.removeFromLeft (midGapX);
+        evenBlend.setBounds (preRow.removeFromLeft (midKnobW)); preRow.removeFromLeft (midGapX + 12);
 
-        auto onCell = preRow.removeFromLeft (kS);
-        preDriveBtn.setBounds (onCell.withSizeKeepingCentre (70, 24));
-        preRow.removeFromLeft (gapX);
+        auto onCell = preRow.removeFromLeft (midKnobW);
+        preDriveBtn.setBounds (onCell.withSizeKeepingCentre (74, 26));
+        preRow.removeFromLeft (midGapX);
 
-        auto countCell = preRow.removeFromLeft (kS);
-        totalOttBox.setBounds (countCell.withSizeKeepingCentre (70, 22).translated (0, -5));
-        totalOttLabel.setBounds (countCell.withSizeKeepingCentre (70, 13).translated (0, 13));
-        preRow.removeFromLeft (gapX + 10);
+        auto countCell = preRow.removeFromLeft (midKnobW);
+        totalOttBox.setBounds (countCell.withSizeKeepingCentre (74, 24).translated (0, -5));
+        totalOttLabel.setBounds (countCell.withSizeKeepingCentre (74, 13).translated (0, 13));
+        preRow.removeFromLeft (midGapX + 12);
 
-        xLow.setBounds  (preRow.removeFromLeft (kS)); preRow.removeFromLeft (gapX);
-        xHigh.setBounds (preRow.removeFromLeft (kS));
+        xLow.setBounds  (preRow.removeFromLeft (midKnobW)); preRow.removeFromLeft (midGapX);
+        xHigh.setBounds (preRow.removeFromLeft (midKnobW));
 
         area.removeFromTop (6);
 
         masterLabel.setBounds (area.removeFromTop (16));
         area.removeFromTop (2);
 
-        auto mRow = area.removeFromTop (62);
-        postHPF.setBounds   (mRow.removeFromLeft (kS)); mRow.removeFromLeft (gapX);
-        postLPF.setBounds   (mRow.removeFromLeft (kS)); mRow.removeFromLeft (gapX + 8);
+        auto mRow = area.removeFromTop (60);
+        postHPF.setBounds   (mRow.removeFromLeft (midKnobW)); mRow.removeFromLeft (midGapX);
+        postLPF.setBounds   (mRow.removeFromLeft (midKnobW)); mRow.removeFromLeft (midGapX + 10);
 
-        phaseModeBox.setBounds (mRow.removeFromLeft (125).withSizeKeepingCentre (120, 24));
-        mRow.removeFromLeft (gapX + 10);
+        phaseModeBox.setBounds (mRow.removeFromLeft (130).withSizeKeepingCentre (125, 26));
+        mRow.removeFromLeft (midGapX + 12);
 
-        dryWet.setBounds    (mRow.removeFromLeft (kS)); mRow.removeFromLeft (gapX);
-        outGain.setBounds   (mRow.removeFromLeft (kS)); mRow.removeFromLeft (gapX);
-        limitCeil.setBounds (mRow.removeFromLeft (kS));
+        dryWet.setBounds    (mRow.removeFromLeft (midKnobW)); mRow.removeFromLeft (midGapX);
+        outGain.setBounds   (mRow.removeFromLeft (midKnobW)); mRow.removeFromLeft (midGapX);
+        limitCeil.setBounds (mRow.removeFromLeft (midKnobW));
 
-        area.removeFromTop (8);
+        area.removeFromTop (10);
 
-        // 3. 下段 STAGE CONTROLS (選択された Stage 1 または Stage 2)
+        // 3. 下段 STAGE CONTROLS (上下対 ＆ グループ機能レイアウト)
         auto stageHeader = area.removeFromTop (22);
         stageLabel.setBounds (stageHeader.removeFromLeft (180));
         if (activeStage == 1)
-            s1OnBtn.setBounds (stageHeader.removeFromLeft (90).withSizeKeepingCentre (85, 22));
+            s1OnBtn.setBounds (stageHeader.removeFromLeft (90).withSizeKeepingCentre (85, 24));
         else
-            s2OnBtn.setBounds (stageHeader.removeFromLeft (90).withSizeKeepingCentre (85, 22));
+            s2OnBtn.setBounds (stageHeader.removeFromLeft (90).withSizeKeepingCentre (85, 24));
 
         area.removeFromTop (4);
-
-        // ノブ配置 (1行に8〜9ノブをピッタリ配置して REL H の表示切れを解消)
-        // 860px - 20pxパディング = 840px
-        // ノブ幅 72px, 隙間 12px ➔ 9ノブで (72*9 + 12*8) = 648 + 96 = 744px (余裕で全収まる！)
-        int knobW = 72;
-        int knobGap = 12;
 
         ArcKnob* gn = (activeStage == 1) ? s1Gain : s2Gain;
         ArcKnob* up = (activeStage == 1) ? s1Up   : s2Up;
@@ -245,34 +243,51 @@ public:
         ArcKnob* ak = (activeStage == 1) ? s1Atk  : s2Atk;
         ArcKnob* rl = (activeStage == 1) ? s1Rel  : s2Rel;
 
-        // 行1: LOW G, MID G, HI G | LOW UP, MID UP, HI UP | TIME, MIX (全8ノブ)
-        auto sRow1 = area.removeFromTop (64);
-        gn[0].setBounds (sRow1.removeFromLeft (knobW)); sRow1.removeFromLeft (knobGap);
-        gn[1].setBounds (sRow1.removeFromLeft (knobW)); sRow1.removeFromLeft (knobGap);
-        gn[2].setBounds (sRow1.removeFromLeft (knobW)); sRow1.removeFromLeft (knobGap + 12);
+        // ノブサイズ 80px
+        int kW = 80;
+        int kG = 12;
 
-        up[0].setBounds (sRow1.removeFromLeft (knobW)); sRow1.removeFromLeft (knobGap);
-        up[1].setBounds (sRow1.removeFromLeft (knobW)); sRow1.removeFromLeft (knobGap);
-        up[2].setBounds (sRow1.removeFromLeft (knobW)); sRow1.removeFromLeft (knobGap + 12);
+        // --- 行1: GAIN L/M/H | UPWARD L/M/H | ATTACK L/M/H | TIME (全8ノブ) ---
+        auto sRow1 = area.removeFromTop (72);
 
-        tm.setBounds   (sRow1.removeFromLeft (knobW)); sRow1.removeFromLeft (knobGap);
-        mx.setBounds   (sRow1.removeFromLeft (knobW));
+        // GAIN (LOW, MID, HI)
+        gn[0].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG);
+        gn[1].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG);
+        gn[2].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG + 14);
+
+        // UPWARD (LOW UP, MID UP, HI UP)  ← Downwardと上下対！
+        up[0].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG);
+        up[1].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG);
+        up[2].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG + 14);
+
+        // ATTACK (ATK L, ATK M, ATK H)    ← Releaseと上下対！
+        ak[0].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG);
+        ak[1].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG);
+        ak[2].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG + 14);
+
+        // TIME
+        tm.setBounds    (sRow1.removeFromLeft (kW));
 
         area.removeFromTop (6);
 
-        // 行2: LOW DN, MID DN, HI DN | ATK L, ATK M, ATK H | REL L, REL M, REL H (全9ノブ)
-        auto sRow2 = area.removeFromTop (64);
-        dn[0].setBounds (sRow2.removeFromLeft (knobW)); sRow2.removeFromLeft (knobGap);
-        dn[1].setBounds (sRow2.removeFromLeft (knobW)); sRow2.removeFromLeft (knobGap);
-        dn[2].setBounds (sRow2.removeFromLeft (knobW)); sRow2.removeFromLeft (knobGap + 12);
+        // --- 行2: (空き) | DOWNWARD L/M/H | RELEASE L/M/H | MIX (全8ノブ) ---
+        auto sRow2 = area.removeFromTop (72);
 
-        ak[0].setBounds (sRow2.removeFromLeft (knobW)); sRow2.removeFromLeft (knobGap);
-        ak[1].setBounds (sRow2.removeFromLeft (knobW)); sRow2.removeFromLeft (knobGap);
-        ak[2].setBounds (sRow2.removeFromLeft (knobW)); sRow2.removeFromLeft (knobGap + 12);
+        // GAINの下はスペース空け (またはMIX移動)
+        sRow2.removeFromLeft (kW * 3 + kG * 2 + 14);
 
-        rl[0].setBounds (sRow2.removeFromLeft (knobW)); sRow2.removeFromLeft (knobGap);
-        rl[1].setBounds (sRow2.removeFromLeft (knobW)); sRow2.removeFromLeft (knobGap);
-        rl[2].setBounds (sRow2.removeFromLeft (knobW));  // REL H も完璧に収まる！
+        // DOWNWARD (LOW DN, MID DN, HI DN) ← UPWARDの真下に整列！
+        dn[0].setBounds (sRow2.removeFromLeft (kW)); sRow2.removeFromLeft (kG);
+        dn[1].setBounds (sRow2.removeFromLeft (kW)); sRow2.removeFromLeft (kG);
+        dn[2].setBounds (sRow2.removeFromLeft (kW)); sRow2.removeFromLeft (kG + 14);
+
+        // RELEASE (REL L, REL M, REL H)    ← ATTACKの真下に整列！(REL Hも完全表示)
+        rl[0].setBounds (sRow2.removeFromLeft (kW)); sRow2.removeFromLeft (kG);
+        rl[1].setBounds (sRow2.removeFromLeft (kW)); sRow2.removeFromLeft (kG);
+        rl[2].setBounds (sRow2.removeFromLeft (kW)); sRow2.removeFromLeft (kG + 14);
+
+        // MIX
+        mx.setBounds    (sRow2.removeFromLeft (kW));
     }
 
 private:
@@ -294,7 +309,6 @@ private:
 
     DynVisualComponent dynS1, dynS2;
 
-    // Stage 1/2 ノブ群
     juce::TextButton s1OnBtn, s2OnBtn;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> s1OnAt, s2OnAt;
 
