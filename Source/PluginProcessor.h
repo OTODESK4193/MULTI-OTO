@@ -35,6 +35,9 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
+    /** GUI がメーター値を読み取るためのアクセサ */
+    EngineCore* getEngineCore() const { return engineCore.get(); }
+
 private:
     std::unique_ptr<EngineCore> engineCore;
     double currentSampleRate = 0.0; // Ableton Live Fail-safe

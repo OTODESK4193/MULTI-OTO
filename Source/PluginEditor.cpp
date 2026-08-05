@@ -1,211 +1,115 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "DSP/EngineCore.h"
 
-MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor(MultiOtoAudioProcessor& p) : AudioProcessorEditor(&p), audioProcessor(p) {
-    setOpaque(true);
-    auto& apvts = audioProcessor.apvts;
+// ============================================================================
+//  ContentComponent
+// ============================================================================
+MultiOtoAudioProcessorEditor::ContentComponent::ContentComponent (
+    MultiOtoAudioProcessor& proc, MultiOtoLookAndFeel& laf)
+    : processor (proc),
+      mainPanel   (proc.apvts, laf),
+      stage1Panel (proc.apvts, 1, laf),
+      stage2Panel (proc.apvts, 2, laf),
+      masterPanel (proc.apvts, laf)
+{
+    addAndMakeVisible (header);
+    addAndMakeVisible (mainPanel);
+    addAndMakeVisible (stage1Panel);
+    addAndMakeVisible (stage2Panel);
+    addAndMakeVisible (masterPanel);
 
-    auto setupBtn = [&](juce::TextButton& b, const char* pID, std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>& a) {
-        b.setClickingTogglesState(true);
-        b.setColour(juce::TextButton::buttonColourId, MultiOtoColors::Surface);
-        b.setColour(juce::TextButton::buttonOnColourId, MultiOtoColors::Accent);
-        b.setColour(juce::TextButton::textColourOffId, MultiOtoColors::TextSecondary);
-        b.setColour(juce::TextButton::textColourOnId, MultiOtoColors::Background);
-        addAndMakeVisible(b);
-        a = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, pID, b);
-        };
+    header.onTabChanged = [this] (TabHeader::Tab t) { setActiveTab (t); };
 
-    setupBtn(preDriveBtn, "predrive_on", preDriveAt);
-    setupBtn(stage1Btn, "s1_on", s1At);
-    setupBtn(stage2Btn, "s2_on", s2At);
-
-    // 【変更】UI上でも128を選択できるように追加
-    totalOttBox.addItemList({ "2","4","8","16","32","64","128" }, 1);
-    totalOttBox.setLookAndFeel(&laf);
-    addAndMakeVisible(totalOttBox);
-    totalOttAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "total_ott", totalOttBox);
-
-    totalOttLabel.setText("COUNT", juce::dontSendNotification);
-    totalOttLabel.setColour(juce::Label::textColourId, MultiOtoColors::TextSecondary);
-    totalOttLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(totalOttLabel);
-
-    inGain.build(apvts, "in_gain", "IN", this, laf);
-    drive.build(apvts, "drive", "DRIVE", this, laf);
-    oddBlend.build(apvts, "odd_blend", "ODD", this, laf);
-    evenBlend.build(apvts, "even_blend", "EVEN", this, laf);
-    xLow.build(apvts, "xover_low", "LOW X", this, laf);
-    xHigh.build(apvts, "xover_high", "HIGH X", this, laf);
-
-    auto buildS = [&](int s) {
-        juce::String st = juce::String(s);
-        ArcKnob* gn = (s == 1) ? &s1GainL : &s2GainL;
-        ArcKnob* dp = (s == 1) ? &s1DepthL : &s2DepthL;
-        ArcKnob* ak = (s == 1) ? &s1AtkL : &s2AtkL;
-        ArcKnob* rl = (s == 1) ? &s1RelL : &s2RelL;
-
-        gn[0].build(apvts, "s" + st + "_gain_l", "LOW G", this, laf);
-        gn[1].build(apvts, "s" + st + "_gain_m", "MID G", this, laf);
-        gn[2].build(apvts, "s" + st + "_gain_h", "HI G", this, laf);
-
-        dp[0].build(apvts, "s" + st + "_depth_l", "LOW D", this, laf);
-        dp[1].build(apvts, "s" + st + "_depth_m", "MID D", this, laf);
-        dp[2].build(apvts, "s" + st + "_depth_h", "HI D", this, laf);
-
-        ak[0].build(apvts, "s" + st + "_atk_l", "ATK L", this, laf);
-        ak[1].build(apvts, "s" + st + "_atk_m", "ATK M", this, laf);
-        ak[2].build(apvts, "s" + st + "_atk_h", "ATK H", this, laf);
-
-        rl[0].build(apvts, "s" + st + "_rel_l", "REL L", this, laf);
-        rl[1].build(apvts, "s" + st + "_rel_m", "REL M", this, laf);
-        rl[2].build(apvts, "s" + st + "_rel_h", "REL H", this, laf);
-
-        if (s == 1) {
-            s1Time.build(apvts, "s1_time", "TIME", this, laf);
-            s1Mix.build(apvts, "s1_mix", "MIX", this, laf);
-        }
-        else {
-            s2Time.build(apvts, "s2_time", "TIME", this, laf);
-            s2Mix.build(apvts, "s2_mix", "MIX", this, laf);
-        }
-        };
-
-    buildS(1);
-    buildS(2);
-
-    postHPF.build(apvts, "post_hpf", "HPF", this, laf);
-    postLPF.build(apvts, "post_lpf", "LPF", this, laf);
-    dryWet.build(apvts, "dry_wet", "MIX", this, laf);
-    outGain.build(apvts, "out_gain", "OUT", this, laf);
-    limitCeil.build(apvts, "limit_ceil", "CEIL", this, laf);
-
-    phaseModeBox.addItemList({ "COLOR PHASE", "ALIGN PHASE" }, 1);
-    phaseModeBox.setLookAndFeel(&laf);
-    phaseModeBox.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(phaseModeBox);
-    phaseModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "phase_mode", phaseModeBox);
-
-    addAndMakeVisible(preDriveGroup); preDriveGroup.setText("PRE-DRIVE & X-OVER");
-    addAndMakeVisible(stage1Group); stage1Group.setText("STAGE 1");
-    addAndMakeVisible(stage2Group); stage2Group.setText("STAGE 2");
-    addAndMakeVisible(masterGroup); masterGroup.setText("MASTER");
-
-    setSize(895, 750);
+    setActiveTab (TabHeader::Main);
 }
 
-MultiOtoAudioProcessorEditor::~MultiOtoAudioProcessorEditor() {
-    totalOttBox.setLookAndFeel(nullptr);
-    phaseModeBox.setLookAndFeel(nullptr);
-    removeAllChildren();
+MultiOtoAudioProcessorEditor::ContentComponent::~ContentComponent()
+{
 }
 
-void MultiOtoAudioProcessorEditor::paint(juce::Graphics& g) {
-    g.setGradientFill(juce::ColourGradient(juce::Colour(0xFF170801), 0, 0, juce::Colour(0xFF1c0901), 0, (float)getHeight(), false));
+void MultiOtoAudioProcessorEditor::ContentComponent::paint (juce::Graphics& g)
+{
+    g.setGradientFill (juce::ColourGradient (
+        MOColors::bg, 0, 0,
+        MOColors::bg.darker (0.15f), 0, (float) getHeight(), false));
     g.fillAll();
 }
 
-void MultiOtoAudioProcessorEditor::resized() {
-    auto area = getLocalBounds().reduced(20);
-    int kS = 90;
-    int gap = 15;
+void MultiOtoAudioProcessorEditor::ContentComponent::resized()
+{
+    auto area = getLocalBounds();
 
-    auto topArea = area.removeFromTop(210);
+    // ヘッダー (40px)
+    header.setBounds (area.removeFromTop (40));
 
-    preDriveGroup.setBounds(topArea.removeFromLeft(kS * 4 + gap * 3 + 30));
-    auto pA = preDriveGroup.getBounds().reduced(15).withTrimmedTop(15);
+    // 各タブのパネル領域
+    auto panelArea = area.reduced (6, 4);
+    mainPanel.setBounds   (panelArea);
+    stage1Panel.setBounds (panelArea);
+    stage2Panel.setBounds (panelArea);
+    masterPanel.setBounds (panelArea);
+}
 
-    auto pR1 = pA.removeFromTop(kS);
-    inGain.setBounds(pR1.removeFromLeft(kS)); pR1.removeFromLeft(gap);
-    drive.setBounds(pR1.removeFromLeft(kS)); pR1.removeFromLeft(gap);
-    oddBlend.setBounds(pR1.removeFromLeft(kS)); pR1.removeFromLeft(gap);
-    evenBlend.setBounds(pR1.removeFromLeft(kS));
+void MultiOtoAudioProcessorEditor::ContentComponent::setActiveTab (TabHeader::Tab t)
+{
+    mainPanel.setVisible   (t == TabHeader::Main);
+    stage1Panel.setVisible (t == TabHeader::Stage1);
+    stage2Panel.setVisible (t == TabHeader::Stage2);
+    masterPanel.setVisible (t == TabHeader::Master);
+}
 
-    auto pR2 = pA.removeFromTop(kS);
-    auto onCell = pR2.removeFromLeft(kS);
-    preDriveBtn.setBounds(onCell.withSizeKeepingCentre(60, 24));
-    pR2.removeFromLeft(gap);
+void MultiOtoAudioProcessorEditor::ContentComponent::connectMeters()
+{
+    auto* engine = processor.getEngineCore();
+    if (engine == nullptr) return;
 
-    auto countCell = pR2.removeFromLeft(kS);
-    totalOttBox.setBounds(countCell.withSizeKeepingCentre(75, 26).translated(0, -5));
-    totalOttLabel.setBounds(countCell.withSizeKeepingCentre(75, 15).translated(0, 15));
-    pR2.removeFromLeft(gap);
+    mainPanel.setMeters (&engine->s1Meter, &engine->s2Meter,
+                         &engine->xoverLoAtomic, &engine->xoverHiAtomic);
+    stage1Panel.setMeter (&engine->s1Meter, &engine->xoverLoAtomic, &engine->xoverHiAtomic);
+    stage2Panel.setMeter (&engine->s2Meter, &engine->xoverLoAtomic, &engine->xoverHiAtomic);
+    masterPanel.setMeters (&engine->s1Meter, &engine->s2Meter,
+                           &engine->xoverLoAtomic, &engine->xoverHiAtomic);
+}
 
-    xLow.setBounds(pR2.removeFromLeft(kS)); pR2.removeFromLeft(gap);
-    xHigh.setBounds(pR2.removeFromLeft(kS));
+// ============================================================================
+//  PluginEditor
+// ============================================================================
+MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor (MultiOtoAudioProcessor& p)
+    : AudioProcessorEditor (&p),
+      audioProcessor (p),
+      content (p, laf)
+{
+    setOpaque (true);
+    setLookAndFeel (&laf);
 
-    topArea.removeFromLeft(60);
+    // LIFT-X 式: アスペクト比固定リサイズ
+    constrainer.setFixedAspectRatio ((double) kBaseW / (double) kBaseH);
+    constrainer.setMinimumSize (kBaseW / 2, kBaseH / 2);
+    constrainer.setMaximumSize (kBaseW * 2, kBaseH * 2);
+    setConstrainer (&constrainer);
+    setResizable (true, true);
 
-    masterGroup.setBounds(topArea.removeFromLeft(360));
-    auto mA = masterGroup.getBounds().reduced(15).withTrimmedTop(15);
+    addAndMakeVisible (content);
 
-    auto mR1 = mA.removeFromTop(kS);
-    postHPF.setBounds(mR1.removeFromLeft(kS)); mR1.removeFromLeft(gap);
-    postLPF.setBounds(mR1.removeFromLeft(kS)); mR1.removeFromLeft(gap);
-    phaseModeBox.setBounds(mR1.removeFromLeft(120).withSizeKeepingCentre(115, 26).translated(0, -5));
+    // メーター接続
+    content.connectMeters();
 
-    auto mR2 = mA.removeFromTop(kS);
-    dryWet.setBounds(mR2.removeFromLeft(kS)); mR2.removeFromLeft(gap);
-    limitCeil.setBounds(mR2.removeFromLeft(kS)); mR2.removeFromLeft(gap);
-    outGain.setBounds(mR2.removeFromLeft(kS));
+    setSize (kBaseW, kBaseH);
+}
 
-    area.removeFromTop(10);
+MultiOtoAudioProcessorEditor::~MultiOtoAudioProcessorEditor()
+{
+    setLookAndFeel (nullptr);
+}
 
-    auto layoutS = [&](juce::GroupComponent& g, juce::TextButton& onBtn,
-        ArcKnob& gL, ArcKnob& gM, ArcKnob& gH, ArcKnob& time,
-        ArcKnob& dL, ArcKnob& dM, ArcKnob& dH, ArcKnob& mix,
-        ArcKnob& aL, ArcKnob& aM, ArcKnob& aH,
-        ArcKnob& rL, ArcKnob& rM, ArcKnob& rH,
-        juce::Rectangle<int> b) {
-            g.setBounds(b);
-            auto sA = b.reduced(15).withTrimmedTop(15);
+void MultiOtoAudioProcessorEditor::paint (juce::Graphics&)
+{
+}
 
-            auto btnCol = sA.removeFromLeft(kS);
-            onBtn.setBounds(btnCol.removeFromTop(kS).withSizeKeepingCentre(60, 24));
-
-            sA.removeFromLeft(gap);
-
-            auto basicCol = sA.removeFromLeft(kS * 4 + gap * 3);
-
-            auto bR1 = basicCol.removeFromTop(kS);
-            gL.setBounds(bR1.removeFromLeft(kS)); bR1.removeFromLeft(gap);
-            gM.setBounds(bR1.removeFromLeft(kS)); bR1.removeFromLeft(gap);
-            gH.setBounds(bR1.removeFromLeft(kS)); bR1.removeFromLeft(gap);
-            time.setBounds(bR1.removeFromLeft(kS));
-
-            auto bR2 = basicCol.removeFromTop(kS);
-            dL.setBounds(bR2.removeFromLeft(kS)); bR2.removeFromLeft(gap);
-            dM.setBounds(bR2.removeFromLeft(kS)); bR2.removeFromLeft(gap);
-            dH.setBounds(bR2.removeFromLeft(kS)); bR2.removeFromLeft(gap);
-            mix.setBounds(bR2.removeFromLeft(kS));
-
-            sA.removeFromLeft(gap);
-
-            auto advCol = sA.removeFromLeft(kS * 3 + gap * 2);
-
-            auto aR1 = advCol.removeFromTop(kS);
-            aL.setBounds(aR1.removeFromLeft(kS)); aR1.removeFromLeft(gap);
-            aM.setBounds(aR1.removeFromLeft(kS)); aR1.removeFromLeft(gap);
-            aH.setBounds(aR1.removeFromLeft(kS));
-
-            auto aR2 = advCol.removeFromTop(kS);
-            rL.setBounds(aR2.removeFromLeft(kS)); aR2.removeFromLeft(gap);
-            rM.setBounds(aR2.removeFromLeft(kS)); aR2.removeFromLeft(gap);
-            rH.setBounds(aR2.removeFromLeft(kS));
-        };
-
-    layoutS(stage1Group, stage1Btn,
-        s1GainL, s1GainM, s1GainH, s1Time,
-        s1DepthL, s1DepthM, s1DepthH, s1Mix,
-        s1AtkL, s1AtkM, s1AtkH,
-        s1RelL, s1RelM, s1RelH,
-        area.removeFromTop(230));
-
-    area.removeFromTop(10);
-
-    layoutS(stage2Group, stage2Btn,
-        s2GainL, s2GainM, s2GainH, s2Time,
-        s2DepthL, s2DepthM, s2DepthH, s2Mix,
-        s2AtkL, s2AtkM, s2AtkH,
-        s2RelL, s2RelM, s2RelH,
-        area.removeFromTop(230));
+void MultiOtoAudioProcessorEditor::resized()
+{
+    float scale = (float) getWidth() / (float) kBaseW;
+    content.setTransform (juce::AffineTransform::scale (scale));
+    content.setBounds (0, 0, kBaseW, kBaseH);
 }

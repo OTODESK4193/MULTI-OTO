@@ -46,6 +46,10 @@ void EngineCore::updateParameters(const EngineParams& p) {
     for (auto& c : crossovers) c.setFrequencies(p.xLow, p.xHigh);
     for (auto& dc : dryCrossovers) dc.setFrequencies(p.xLow, p.xHigh);
 
+    // GUI用 atomic 更新
+    xoverLoAtomic.store(p.xLow,  std::memory_order_relaxed);
+    xoverHiAtomic.store(p.xHigh, std::memory_order_relaxed);
+
     postHpfL.setCutoffFrequency(p.post_hpf); postHpfR.setCutoffFrequency(p.post_hpf); postLpfL.setCutoffFrequency(p.post_lpf); postLpfR.setCutoffFrequency(p.post_lpf);
     int half = p.total_ott_count / 2;
     for (int i = 0; i < half; ++i) nodes[i].setParameters(p.s1_gain, p.s1_depth, p.s1_time, p.s1_atk, p.s1_rel, p.s1_mix);
@@ -117,5 +121,34 @@ void EngineCore::process(juce::AudioBuffer<float>& buffer) {
         limiterEnvL = std::max(std::abs(oL), limiterEnvL * limiterReleaseCoef); limiterEnvR = std::max(std::abs(oR), limiterEnvR * limiterReleaseCoef);
         left[i] = oL * ((limiterEnvL > currentLimitThreshold) ? (currentLimitThreshold / limiterEnvL) : 1.0f);
         right[i] = oR * ((limiterEnvR > currentLimitThreshold) ? (currentLimitThreshold / limiterEnvR) : 1.0f);
+    }
+
+    // メーター書き出し — 代表ノード (nodes[0] = Stage1, nodes[half] = Stage2) から取得
+    {
+        float envDb[3], gainDb[3];
+        if (currentParams.s1_on && currentParams.total_ott_count > 0) {
+            nodes[0].getLastMeter(envDb, gainDb);
+            for (int b = 0; b < 3; ++b) {
+                s1Meter.envDb[b].store(envDb[b], std::memory_order_relaxed);
+                s1Meter.gainDb[b].store(gainDb[b], std::memory_order_relaxed);
+            }
+        } else {
+            for (int b = 0; b < 3; ++b) {
+                s1Meter.envDb[b].store(-60.0f, std::memory_order_relaxed);
+                s1Meter.gainDb[b].store(0.0f, std::memory_order_relaxed);
+            }
+        }
+        if (currentParams.s2_on && half < currentParams.total_ott_count) {
+            nodes[half].getLastMeter(envDb, gainDb);
+            for (int b = 0; b < 3; ++b) {
+                s2Meter.envDb[b].store(envDb[b], std::memory_order_relaxed);
+                s2Meter.gainDb[b].store(gainDb[b], std::memory_order_relaxed);
+            }
+        } else {
+            for (int b = 0; b < 3; ++b) {
+                s2Meter.envDb[b].store(-60.0f, std::memory_order_relaxed);
+                s2Meter.gainDb[b].store(0.0f, std::memory_order_relaxed);
+            }
+        }
     }
 }

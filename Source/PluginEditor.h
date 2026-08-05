@@ -1,48 +1,53 @@
 #pragma once
 #include "PluginProcessor.h"
 #include "GUI/MinimalUI.h"
+#include "GUI/TabHeader.h"
+#include "GUI/MainPanel.h"
+#include "GUI/StagePanel.h"
+#include "GUI/MasterPanel.h"
 
-class MultiOtoAudioProcessorEditor : public juce::AudioProcessorEditor {
+// ============================================================================
+//  LIFT-X 準拠 ContentComponent パターン
+//  内部は常に kBaseW (860px) × kBaseH (620px) の論理座標で動作し、
+//  ウィンドウリサイズ時はアフィン変換でスケーリングする。
+// ============================================================================
+class MultiOtoAudioProcessorEditor : public juce::AudioProcessorEditor
+{
 public:
-    MultiOtoAudioProcessorEditor(MultiOtoAudioProcessor&);
+    MultiOtoAudioProcessorEditor (MultiOtoAudioProcessor&);
     ~MultiOtoAudioProcessorEditor() override;
-    void paint(juce::Graphics&) override;
+    void paint (juce::Graphics&) override;
     void resized() override;
 
 private:
+    static constexpr int kBaseW = 860;
+    static constexpr int kBaseH = 620;
+
     MultiOtoAudioProcessor& audioProcessor;
     MultiOtoLookAndFeel laf;
 
-    juce::GroupComponent preDriveGroup, stage1Group, stage2Group, masterGroup;
+    // LIFT-X 式: アスペクト比固定リサイズ
+    juce::ComponentBoundsConstrainer constrainer;
 
-    juce::TextButton preDriveBtn{ "ON" };
-    juce::TextButton stage1Btn{ "ON" };
-    juce::TextButton stage2Btn{ "ON" };
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> preDriveAt, s1At, s2At;
+    struct ContentComponent : public juce::Component
+    {
+        ContentComponent (MultiOtoAudioProcessor& proc, MultiOtoLookAndFeel& laf);
+        ~ContentComponent() override;
+        void paint (juce::Graphics&) override;
+        void resized() override;
 
-    juce::ComboBox totalOttBox;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> totalOttAttachment;
-    juce::Label totalOttLabel;
+        void setActiveTab (TabHeader::Tab t);
+        void connectMeters();
 
-    ArcKnob inGain, drive, oddBlend, evenBlend;
-    ArcKnob xLow, xHigh;
+    private:
+        MultiOtoAudioProcessor& processor;
 
-    ArcKnob s1GainL, s1GainM, s1GainH;
-    ArcKnob s1DepthL, s1DepthM, s1DepthH;
-    ArcKnob s1Time, s1Mix;
-    ArcKnob s1AtkL, s1AtkM, s1AtkH;
-    ArcKnob s1RelL, s1RelM, s1RelH;
+        TabHeader header;
+        MainPanel   mainPanel;
+        StagePanel  stage1Panel;
+        StagePanel  stage2Panel;
+        MasterPanel masterPanel;
+    } content;
 
-    ArcKnob s2GainL, s2GainM, s2GainH;
-    ArcKnob s2DepthL, s2DepthM, s2DepthH;
-    ArcKnob s2Time, s2Mix;
-    ArcKnob s2AtkL, s2AtkM, s2AtkH;
-    ArcKnob s2RelL, s2RelM, s2RelH;
-
-    ArcKnob postHPF, postLPF, dryWet, outGain, limitCeil;
-
-    juce::ComboBox phaseModeBox;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> phaseModeAttachment;
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MultiOtoAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MultiOtoAudioProcessorEditor)
 };

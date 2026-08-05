@@ -77,6 +77,36 @@ public:
         }
     }
 
+    /** 直近フレームのエンベロープ (dB) と適用ゲイン変化 (dB) を返す */
+    void getLastMeter (float outEnvDb[3], float outGainDb[3]) const
+    {
+        alignas(32) float envSqRaw[8];
+        _mm256_store_ps (envSqRaw, v_envSq);
+
+        for (int b = 0; b < 3; ++b)
+        {
+            float rms = std::sqrt (std::max (envSqRaw[b * 2], 1e-15f));
+            outEnvDb[b] = (rms > 1e-7f) ? (FastMath::fast_log2 (rms) * 6.0205f) : -60.0f;
+
+            // ゲイン変化量の近似計算
+            float envDb = outEnvDb[b];
+            float downOver = std::max (0.0f, envDb - (-15.0f));
+            float upUnder  = std::max (0.0f, (-40.0f) - envDb);
+
+            alignas(32) float dArr[8], gArr[8];
+            _mm256_store_ps (dArr, v_depth);
+            _mm256_store_ps (gArr, v_gain);
+
+            float downGain = downOver * (-(1.0f - 0.25f)) * dArr[b * 2];
+            float upGain   = std::min (upUnder * 0.5f, 36.0f) * dArr[b * 2];
+            float totalDb  = downGain + upGain;
+
+            // バンドゲインの dB 変換を加算
+            float bandGainDb = (gArr[b * 2] > 0.001f) ? (20.0f * std::log10 (gArr[b * 2])) : 0.0f;
+            outGainDb[b] = totalDb + bandGainDb;
+        }
+    }
+
 private:
     double currentSampleRate = 44100.0;
     __m256 v_envSq, v_atk, v_rel, v_depth, v_gain, v_mix;

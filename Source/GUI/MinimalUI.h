@@ -1,19 +1,26 @@
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "ColorPalette.h"
 
+// ============================================================================
+//  MultiOtoColors ‚Äî ÂæåÊñπ‰∫íÊèõÁî®„Ç®„Ç§„É™„Ç¢„Çπ (Êñ∞Ë¶è„Ç≥„Éº„Éâ„ÅØ MOColors „Çí‰ΩøÁî®)
+// ============================================================================
 namespace MultiOtoColors {
-    const juce::Colour Background{ 0xFF121212 };
-    const juce::Colour Surface{ 0xFF1A1A1A };
-    const juce::Colour Panel{ 0xFF242424 };
-    const juce::Colour Border{ 0xFF333333 };
-    const juce::Colour Accent{ 0xFFFF6B00 };
-    const juce::Colour AccentBlue{ 0xFF00A3FF };
-    const juce::Colour TextPrimary{ 0xFFE0E0E0 };
-    const juce::Colour TextSecondary{ 0xFF777777 };
-    const juce::Colour ArcTrack{ 0xFF2A2A2A };
+    inline const juce::Colour Background     = MOColors::bg;
+    inline const juce::Colour Surface        = MOColors::panel;
+    inline const juce::Colour Panel          = MOColors::panel;
+    inline const juce::Colour Border         = MOColors::panelLine.withAlpha (0.13f);
+    inline const juce::Colour Accent         = MOColors::accent;
+    inline const juce::Colour AccentBlue     = MOColors::babyBlue;
+    inline const juce::Colour TextPrimary    = MOColors::text;
+    inline const juce::Colour TextSecondary  = MOColors::textDim;
+    inline const juce::Colour ArcTrack       = MOColors::knobTrack;
 }
 
+// ============================================================================
+//  MultiOtoLookAndFeel
+// ============================================================================
 class MultiOtoLookAndFeel : public juce::LookAndFeel_V4 {
 public:
     MultiOtoLookAndFeel();
@@ -23,7 +30,6 @@ public:
     void drawToggleButton(juce::Graphics& g, juce::ToggleButton& button, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override;
     juce::Font getLabelFont(juce::Label&) override;
 
-    // ÉRÉìÉ{É{ÉbÉNÉXÇÃï∂éöÉTÉCÉYÇëÂÇ´Ç≠Ç∑ÇÈÇΩÇﬂÇÃÉIÅ[ÉoÅ[ÉâÉCÉh
     juce::Font getComboBoxFont(juce::ComboBox&) override;
     juce::Font getPopupMenuFont() override;
 
@@ -31,6 +37,9 @@ private:
     juce::Font groupFont;
 };
 
+// ============================================================================
+//  ArcKnob ‚Äî „Çπ„É©„Ç§„ÉÄ„Éº + „É©„Éô„É´„ÅÆ„Éò„É´„Éë„Éº
+// ============================================================================
 struct ArcKnob {
     juce::Slider slider;
     juce::Label label;

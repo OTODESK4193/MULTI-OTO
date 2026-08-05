@@ -7,6 +7,10 @@ project(MultiOto VERSION 1.0.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# VST3互換エラー回避 (Wavetable/LIFT-X 準拠)
+set(JUCE_VST3_AUTO_MANIFEST OFF)
+add_compile_definitions(JUCE_VST3_CAN_REPLACE_VST2=0)
+
 # ============================================================================
 # JUCE
 # ============================================================================
@@ -27,13 +31,13 @@ juce_add_plugin(MultiOto
     NEEDS_MIDI_OUTPUT       FALSE
     IS_MIDI_EFFECT          FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-    VST3_AUTO_MANIFEST      TRUE
+    VST3_AUTO_MANIFEST      FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE
     VERSION                 "1.0.0"
 )
 
 # ============================================================================
-# ソース（プロトタイプ用の構成案）
+# ソース
 # ============================================================================
 target_sources(MultiOto PRIVATE
     # プラグインコア
@@ -41,19 +45,27 @@ target_sources(MultiOto PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.h
     Source/PluginEditor.cpp
-    
-    # GUIモジュール（ミニマルUI）
+
+    # GUIモジュール
+    Source/GUI/ColorPalette.h
     Source/GUI/MinimalUI.h
     Source/GUI/MinimalUI.cpp
+    Source/GUI/TabHeader.h
+    Source/GUI/DynVisual.h
+    Source/GUI/DynVisual.cpp
+    Source/GUI/MainPanel.h
+    Source/GUI/StagePanel.h
+    Source/GUI/MasterPanel.h
 
-    # DSPモジュール（SIMD化を見据えたコア）
+    # DSPモジュール
     Source/DSP/EngineCore.h
     Source/DSP/EngineCore.cpp
     Source/DSP/Crossover.h
     Source/DSP/Crossover.cpp
     Source/DSP/DynamicsNode.h
-    
- "Source/DSP/FastMath.h"  "Source/DSP/ADAASaturator.h")
+    Source/DSP/FastMath.h
+    Source/DSP/ADAASaturator.h
+)
 
 # ============================================================================
 # インクルードパス

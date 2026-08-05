@@ -6,6 +6,14 @@
 #include "DynamicsNode.h"
 #include "ADAASaturator.h"
 
+// ============================================================================
+//  StageMeter — DSP → GUI ロックフリー受け渡し構造体
+// ============================================================================
+struct StageMeter {
+    std::atomic<float> envDb[3]  = { {-60.f}, {-60.f}, {-60.f} };  // 入力レベル (dB)
+    std::atomic<float> gainDb[3] = { {0.f}, {0.f}, {0.f} };         // ゲイン変化量 (dB)
+};
+
 struct EngineParams {
     float inGain, drive, odd, even, xLow, xHigh, s1_gain[3], s1_depth[3], s1_time, s1_mix, s1_atk[3], s1_rel[3], s2_gain[3], s2_depth[3], s2_time, s2_mix, s2_atk[3], s2_rel[3], post_hpf, post_lpf, dryWet, outGain, limitCeil;
     int total_ott_count, phase_mode;
@@ -37,6 +45,14 @@ private:
     std::vector<juce::dsp::SIMDRegister<float>> simdBuffer;
     juce::AudioBuffer<float> dryBuffer;
     ADAASaturator satL, satR;
+
+public:
+    // GUI がポーリングするメーター出力
+    StageMeter s1Meter, s2Meter;
+    std::atomic<float> xoverLoAtomic { 88.0f };
+    std::atomic<float> xoverHiAtomic { 2500.0f };
+
+private:
     float limiterEnvL = 0, limiterEnvR = 0, limiterReleaseCoef = 0, currentLimitThreshold = 0.988f;
     double currentSampleRate = 48000.0;
     std::atomic<bool> isPrepared{ false };
