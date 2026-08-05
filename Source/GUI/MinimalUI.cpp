@@ -12,9 +12,10 @@ MultiOtoLookAndFeel::MultiOtoLookAndFeel() : groupFont(juce::FontOptions(12.0f, 
 }
 
 void MultiOtoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, float sliderPos, float startAngle, float endAngle, juce::Slider&) {
-    auto b = juce::Rectangle<float>((float)x, (float)y, (float)w, (float)h).reduced(1.5f);
+    // 見切れ完全防止のための十分なマージン (6.0px)
+    auto b = juce::Rectangle<float>((float)x, (float)y, (float)w, (float)h).reduced(6.0f);
     float cx = b.getCentreX(), cy = b.getCentreY();
-    float r = juce::jmin(b.getWidth(), b.getHeight()) * 0.45f;   // ノブ半径を拡大
+    float r = juce::jmin(b.getWidth(), b.getHeight()) * 0.42f;   // バウンズ内に収まる適切なノブ半径
     float th = r * 0.22f;                                        // アークの太さ
 
     // トラック
@@ -28,19 +29,19 @@ void MultiOtoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int 
     g.setGradientFill(juce::ColourGradient(MOColors::babyBlue, cx - r, cy, MOColors::accent, cx + r, cy, false));
     g.strokePath(fill, juce::PathStrokeType(th, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-    // 外側グロー
+    // 外側グロー (領域内に確実に収まるようにストロークを調整)
     if (sliderPos > 0.01f)
     {
-        juce::Path glow; glow.addCentredArc(cx, cy, r + 3.0f, r + 3.0f, 0.0f, startAngle, angle, true);
-        g.setColour(MOColors::accent.withAlpha(0.15f));
-        g.strokePath(glow, juce::PathStrokeType(th + 4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        juce::Path glow; glow.addCentredArc(cx, cy, r + 2.0f, r + 2.0f, 0.0f, startAngle, angle, true);
+        g.setColour(MOColors::accent.withAlpha(0.16f));
+        g.strokePath(glow, juce::PathStrokeType(th + 3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
 
     // 中心キャップ
     g.setColour(MOColors::panel);
     g.fillEllipse(cx - r * 0.38f, cy - r * 0.38f, r * 0.76f, r * 0.76f);
 
-    // インジケーター線 (太め)
+    // インジケーター線
     g.setColour(MOColors::text);
     g.drawLine(cx, cy, cx + r * 0.65f * std::sin(angle), cy - r * 0.65f * std::cos(angle), 2.2f);
 }

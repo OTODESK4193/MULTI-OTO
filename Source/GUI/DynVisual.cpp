@@ -1,6 +1,15 @@
 #include "DynVisual.h"
 #include "DSP/EngineCore.h"
 
+// 対数周波数スケール変換 (20Hz ~ 20000Hz ➔ 0.0 ~ 1.0)
+static float logFreqToNorm (float f)
+{
+    static const float minLog = std::log10 (20.0f);
+    static const float maxLog = std::log10 (20000.0f);
+    float clampF = juce::jlimit (20.0f, 20000.0f, f);
+    return (std::log10 (clampF) - minLog) / (maxLog - minLog);
+}
+
 // ============================================================================
 void DynVisualComponent::timerCallback()
 {
@@ -31,15 +40,29 @@ int DynVisualComponent::getBandAtPosition (juce::Point<int> pos) const
     area.removeFromTop (22);
 
     int totalW = area.getWidth();
-    int bandW  = (totalW - 12) / 3;
+    float loF = (xoverLo != nullptr) ? xoverLo->load (std::memory_order_relaxed) : 88.0f;
+    float hiF = (xoverHi != nullptr) ? xoverHi->load (std::memory_order_relaxed) : 2500.0f;
 
-    for (int b = 0; b < 3; ++b)
-    {
-        int bx = area.getX() + b * (bandW + 6);
-        auto bandRect = juce::Rectangle<int> (bx, area.getY(), bandW, area.getHeight());
-        if (bandRect.contains (pos))
-            return b;
-    }
+    float normLo = logFreqToNorm (loF);
+    float normHi = logFreqToNorm (hiF);
+
+    // 最小幅マージン (各 35px) を保証した動的幅計算
+    int gap = 4;
+    int availW = totalW - gap * 2;
+    int minW = 35;
+
+    int wLow  = juce::jlimit (minW, availW - minW * 2, (int) (availW * normLo));
+    int wMid  = juce::jlimit (minW, availW - wLow - minW, (int) (availW * (normHi - normLo)));
+    int wHigh = std::max (minW, availW - wLow - wMid);
+
+    int xLow  = area.getX();
+    int xMid  = xLow + wLow + gap;
+    int xHigh = xMid + wMid + gap;
+
+    if (pos.x >= xLow && pos.x < xLow + wLow) return 0;
+    if (pos.x >= xMid && pos.x < xMid + wMid) return 1;
+    if (pos.x >= xHigh && pos.x < xHigh + wHigh) return 2;
+
     return -1;
 }
 
@@ -84,18 +107,17 @@ void DynVisualComponent::mouseDown (const juce::MouseEvent& e)
     area.removeFromTop (22);
     float midY = area.getY() + area.getHeight() * 0.5f;
 
-    // クリック位置・修飾キーによる目的パラメータの明確な分離
     if (e.mods.isShiftDown() || e.mods.isAltDown())
     {
         dragTarget = TargetGain;
     }
     else if ((float) e.y < midY)
     {
-        dragTarget = TargetUpward;    // 上半分 ➔ UPWARD のみ変更
+        dragTarget = TargetUpward;    // 上半分 ➔ UPWARD
     }
     else
     {
-        dragTarget = TargetDownward;  // 下半分 ➔ DOWNWARD のみ変更
+        dragTarget = TargetDownward;  // 下半分 ➔ DOWNWARD
     }
 
     if (dragTarget == TargetGain && paramGain[draggedBand] != nullptr)
@@ -136,7 +158,7 @@ void DynVisualComponent::mouseDoubleClick (const juce::MouseEvent& e)
     int band = getBandAtPosition (e.getPosition());
     if (band != -1 && paramGain[band] != nullptr)
     {
-        paramGain[band]->setValueNotifyingHost (0.5f); // 0.0 dB リセット
+        paramGain[band]->setValueNotifyingHost (0.5f); // 0.0 dB
         repaint();
     }
 }
@@ -167,12 +189,13 @@ void DynVisualComponent::paint (juce::Graphics& g)
     g.setColour (isSelected ? (stage == 1 ? MOColors::peach : MOColors::babyBlue) : MOColors::textDim);
     g.drawText (title, titleBtnArea, juce::Justification::centred);
 
+    float loF = 88.0f, hiF = 2500.0f;
     if (xoverLo != nullptr && xoverHi != nullptr)
     {
+        loF = xoverLo->load (std::memory_order_relaxed);
+        hiF = xoverHi->load (std::memory_order_relaxed);
         g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)));
         g.setColour (MOColors::textDim);
-        auto loF = xoverLo->load (std::memory_order_relaxed);
-        auto hiF = xoverHi->load (std::memory_order_relaxed);
         g.drawText (freqToString (loF) + " / " + freqToString (hiF),
                     headerRow, juce::Justification::centredRight);
     }
@@ -181,17 +204,35 @@ void DynVisualComponent::paint (juce::Graphics& g)
 
     const char* bandNames[3] = { "LOW", "MID", "HIGH" };
     int totalW = area.getWidth();
-    int bandW  = (totalW - 12) / 3;
     int bandH  = area.getHeight();
     float midY = area.getY() + bandH * 0.5f;
+
+    // --- クロスオーバー周波数連動の対数幅計算 ---
+    float normLo = logFreqToNorm (loF);
+    float normHi = logFreqToNorm (hiF);
+
+    int gap = 4;
+    int availW = totalW - gap * 2;
+    int minW = 35;
+
+    int bandW[3];
+    bandW[0] = juce::jlimit (minW, availW - minW * 2, (int) (availW * normLo));
+    bandW[1] = juce::jlimit (minW, availW - bandW[0] - minW, (int) (availW * (normHi - normLo)));
+    bandW[2] = std::max (minW, availW - bandW[0] - bandW[1]);
+
+    int bandX[3];
+    bandX[0] = area.getX();
+    bandX[1] = bandX[0] + bandW[0] + gap;
+    bandX[2] = bandX[1] + bandW[1] + gap;
 
     const juce::Colour upColors[3] = { MOColors::bandLowUp, MOColors::bandMidUp, MOColors::bandHighUp };
     const juce::Colour dnColors[3] = { MOColors::bandLowDn, MOColors::bandMidDn, MOColors::bandHighDn };
 
     for (int b = 0; b < 3; ++b)
     {
-        int bx = area.getX() + b * (bandW + 6);
-        auto bandRect = juce::Rectangle<int> (bx, area.getY(), bandW, bandH);
+        int bx = bandX[b];
+        int bw = bandW[b];
+        auto bandRect = juce::Rectangle<int> (bx, area.getY(), bw, bandH);
 
         if (b == hoveredBand || b == draggedBand)
         {
@@ -211,7 +252,7 @@ void DynVisualComponent::paint (juce::Graphics& g)
         if (envNorm > 0.001f)
         {
             int envH = (int) (bandH * envNorm);
-            auto envRect = juce::Rectangle<int> (bx + 2, area.getY() + bandH - envH, bandW - 4, envH);
+            auto envRect = juce::Rectangle<int> (bx + 2, area.getY() + bandH - envH, bw - 4, envH);
             g.setColour (MOColors::text.withAlpha (0.08f));
             g.fillRoundedRectangle (envRect.toFloat(), 3.0f);
         }
@@ -223,26 +264,26 @@ void DynVisualComponent::paint (juce::Graphics& g)
         float maxUpH = (bandH * 0.42f) * upPct;
         if (maxUpH > 1.0f)
         {
-            auto upGuide = juce::Rectangle<float> ((float) bx + 2, midY - maxUpH, (float) bandW - 4, maxUpH);
+            auto upGuide = juce::Rectangle<float> ((float) bx + 2, midY - maxUpH, (float) bw - 4, maxUpH);
             g.setColour (upColors[b].withAlpha (0.08f));
             g.fillRoundedRectangle (upGuide, 2.0f);
             g.setColour (upColors[b].withAlpha (0.25f));
-            g.drawHorizontalLine ((int) (midY - maxUpH), (float) bx + 3, (float) (bx + bandW - 3));
+            g.drawHorizontalLine ((int) (midY - maxUpH), (float) bx + 3, (float) (bx + bw - 3));
         }
 
         float maxDnH = (bandH * 0.42f) * downPct;
         if (maxDnH > 1.0f)
         {
-            auto dnGuide = juce::Rectangle<float> ((float) bx + 2, midY, (float) bandW - 4, maxDnH);
+            auto dnGuide = juce::Rectangle<float> ((float) bx + 2, midY, (float) bw - 4, maxDnH);
             g.setColour (dnColors[b].withAlpha (0.08f));
             g.fillRoundedRectangle (dnGuide, 2.0f);
             g.setColour (dnColors[b].withAlpha (0.25f));
-            g.drawHorizontalLine ((int) (midY + maxDnH), (float) bx + 3, (float) (bx + bandW - 3));
+            g.drawHorizontalLine ((int) (midY + maxDnH), (float) bx + 3, (float) (bx + bw - 3));
         }
 
         // 中央基準線 (0 dB)
         g.setColour (MOColors::grid.withAlpha (0.20f));
-        g.drawHorizontalLine ((int) midY, (float) bx + 2, (float) (bx + bandW - 2));
+        g.drawHorizontalLine ((int) midY, (float) bx + 2, (float) (bx + bw - 2));
 
         // ゲイン変化バー
         float gainNorm = gainToNorm (smoothGainDb[b]);
@@ -251,7 +292,7 @@ void DynVisualComponent::paint (juce::Graphics& g)
         {
             float barH = gainNorm * (bandH * 0.42f);
             auto upRect = juce::Rectangle<float> (
-                (float) bx + 4, midY - barH, (float) bandW - 8, barH);
+                (float) bx + 4, midY - barH, (float) bw - 8, barH);
             g.setColour (upColors[b].withAlpha (0.45f));
             g.fillRoundedRectangle (upRect, 2.0f);
             g.setColour (upColors[b]);
@@ -261,7 +302,7 @@ void DynVisualComponent::paint (juce::Graphics& g)
         {
             float barH = -gainNorm * (bandH * 0.42f);
             auto dnRect = juce::Rectangle<float> (
-                (float) bx + 4, midY, (float) bandW - 8, barH);
+                (float) bx + 4, midY, (float) bw - 8, barH);
             g.setColour (dnColors[b].withAlpha (0.45f));
             g.fillRoundedRectangle (dnRect.toFloat(), 2.0f);
             g.setColour (dnColors[b]);
@@ -279,11 +320,11 @@ void DynVisualComponent::paint (juce::Graphics& g)
             dbStr = "0.0dB";
 
         g.setColour (smoothGainDb[b] > 0.05f ? upColors[b] : (smoothGainDb[b] < -0.05f ? dnColors[b] : MOColors::textDim));
-        g.drawText (dbStr, bx, area.getY() + 3, bandW, 16, juce::Justification::centred);
+        g.drawText (dbStr, bx, area.getY() + 3, bw, 16, juce::Justification::centred);
 
-        // バンド名
+        // バンド名 (幅に応じて適切に表示)
         g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)));
         g.setColour (upColors[b].withAlpha (0.9f));
-        g.drawText (bandNames[b], bx, area.getY() + bandH - 16, bandW, 16, juce::Justification::centred);
+        g.drawText (bandNames[b], bx, area.getY() + bandH - 16, bw, 16, juce::Justification::centred);
     }
 }

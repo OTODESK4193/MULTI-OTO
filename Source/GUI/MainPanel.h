@@ -8,14 +8,10 @@
 struct StageMeter;
 
 // ============================================================================
-//  MainPanel — 1画面統合パネル (高視認性大型ノブ ＆ 機能的上下対レイアウト)
-//  上部: DynVisual (Stage1 & Stage2 横並び、タイトルボタンでStage選択)
+//  MainPanel — 1画面統合パネル (ノブアーク切れ完全防止 ＆ 周波数連動幅グラフ)
+//  上部: DynVisual (Stage1 & Stage2 横並び、タイトルトグル、クロスオーバー連動対数幅)
 //  中段: PRE-DRIVE & CROSSOVER + MASTER CONTROLS
-//  下段: STAGE CONTROLS
-//        ・GAIN (3)
-//        ・UPWARD / DOWNWARD (上下対 3×2)
-//        ・ATTACK / RELEASE (上下対 3×2, REL Hも完全描画)
-//        ・GLOBAL (TIME, MIX)
+//  下段: STAGE CONTROLS (UP/DN上下対, ATK/REL上下対, REL H完全表示)
 // ============================================================================
 class MainPanel : public juce::Component
 {
@@ -183,13 +179,14 @@ public:
         area.removeFromTop (8);
 
         int midKnobW = 76;
+        int midKnobH = 64;
         int midGapX  = 16;
 
-        // 2. 中段 PRE-DRIVE & MASTER (高さ 150px)
+        // 2. 中段 PRE-DRIVE & MASTER
         preLabel.setBounds (area.removeFromTop (16));
         area.removeFromTop (2);
 
-        auto preRow = area.removeFromTop (60);
+        auto preRow = area.removeFromTop (midKnobH);
         inGain.setBounds    (preRow.removeFromLeft (midKnobW)); preRow.removeFromLeft (midGapX);
         drive.setBounds     (preRow.removeFromLeft (midKnobW)); preRow.removeFromLeft (midGapX);
         oddBlend.setBounds  (preRow.removeFromLeft (midKnobW)); preRow.removeFromLeft (midGapX);
@@ -212,7 +209,7 @@ public:
         masterLabel.setBounds (area.removeFromTop (16));
         area.removeFromTop (2);
 
-        auto mRow = area.removeFromTop (60);
+        auto mRow = area.removeFromTop (midKnobH);
         postHPF.setBounds   (mRow.removeFromLeft (midKnobW)); mRow.removeFromLeft (midGapX);
         postLPF.setBounds   (mRow.removeFromLeft (midKnobW)); mRow.removeFromLeft (midGapX + 10);
 
@@ -225,7 +222,7 @@ public:
 
         area.removeFromTop (10);
 
-        // 3. 下段 STAGE CONTROLS (上下対 ＆ グループ機能レイアウト)
+        // 3. 下段 STAGE CONTROLS (アーク切れ防止の高さ82px確保)
         auto stageHeader = area.removeFromTop (22);
         stageLabel.setBounds (stageHeader.removeFromLeft (180));
         if (activeStage == 1)
@@ -243,50 +240,42 @@ public:
         ArcKnob* ak = (activeStage == 1) ? s1Atk  : s2Atk;
         ArcKnob* rl = (activeStage == 1) ? s1Rel  : s2Rel;
 
-        // ノブサイズ 80px
-        int kW = 80;
+        int kW = 82;   // ノブ幅 82px
+        int kH = 76;   // ノブ高さ 76px (見切れ解消)
         int kG = 12;
 
-        // --- 行1: GAIN L/M/H | UPWARD L/M/H | ATTACK L/M/H | TIME (全8ノブ) ---
-        auto sRow1 = area.removeFromTop (72);
+        // --- 行1: GAIN L/M/H | UPWARD L/M/H | ATTACK L/M/H | TIME ---
+        auto sRow1 = area.removeFromTop (kH);
 
-        // GAIN (LOW, MID, HI)
         gn[0].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG);
         gn[1].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG);
         gn[2].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG + 14);
 
-        // UPWARD (LOW UP, MID UP, HI UP)  ← Downwardと上下対！
         up[0].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG);
         up[1].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG);
         up[2].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG + 14);
 
-        // ATTACK (ATK L, ATK M, ATK H)    ← Releaseと上下対！
         ak[0].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG);
         ak[1].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG);
         ak[2].setBounds (sRow1.removeFromLeft (kW)); sRow1.removeFromLeft (kG + 14);
 
-        // TIME
         tm.setBounds    (sRow1.removeFromLeft (kW));
 
         area.removeFromTop (6);
 
-        // --- 行2: (空き) | DOWNWARD L/M/H | RELEASE L/M/H | MIX (全8ノブ) ---
-        auto sRow2 = area.removeFromTop (72);
+        // --- 行2: (空き) | DOWNWARD L/M/H | RELEASE L/M/H | MIX ---
+        auto sRow2 = area.removeFromTop (kH);
 
-        // GAINの下はスペース空け (またはMIX移動)
         sRow2.removeFromLeft (kW * 3 + kG * 2 + 14);
 
-        // DOWNWARD (LOW DN, MID DN, HI DN) ← UPWARDの真下に整列！
         dn[0].setBounds (sRow2.removeFromLeft (kW)); sRow2.removeFromLeft (kG);
         dn[1].setBounds (sRow2.removeFromLeft (kW)); sRow2.removeFromLeft (kG);
         dn[2].setBounds (sRow2.removeFromLeft (kW)); sRow2.removeFromLeft (kG + 14);
 
-        // RELEASE (REL L, REL M, REL H)    ← ATTACKの真下に整列！(REL Hも完全表示)
         rl[0].setBounds (sRow2.removeFromLeft (kW)); sRow2.removeFromLeft (kG);
         rl[1].setBounds (sRow2.removeFromLeft (kW)); sRow2.removeFromLeft (kG);
         rl[2].setBounds (sRow2.removeFromLeft (kW)); sRow2.removeFromLeft (kG + 14);
 
-        // MIX
         mx.setBounds    (sRow2.removeFromLeft (kW));
     }
 
