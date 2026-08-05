@@ -54,7 +54,6 @@ target_sources(MultiOto PRIVATE
     Source/GUI/DynVisual.h
     Source/GUI/DynVisual.cpp
     Source/GUI/MainPanel.h
-    Source/GUI/StagePanel.h
 
     # DSPモジュール
     Source/DSP/EngineCore.h

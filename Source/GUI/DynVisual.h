@@ -8,8 +8,9 @@ struct StageMeter;
 
 // ============================================================================
 //  DynVisualComponent
-//  Wavetable DynVisual 準拠の 3-BAND OTT リアルタイム可視化
-//  ＋ マウスドラッグによる GAIN / UPWARD / DOWNWARD 直感操作機能！
+//  3-BAND OTT リアルタイム可視化 (LOW/MID/HIGH 帯域別カラー)
+//  ＋ タイトル部が選択ボタンとして動作 (onStageSelected)
+//  ＋ Upward / Downward 設定シェードガイド ＆ マウス直感操作
 // ============================================================================
 class DynVisualComponent : public juce::Component,
                            private juce::Timer
@@ -20,6 +21,8 @@ public:
 
     void setMeter (const StageMeter* m) { meter = m; }
     void setTitle (const juce::String& t) { title = t; }
+    void setSelected (bool sel) { isSelected = sel; repaint(); }
+    bool getSelected() const { return isSelected; }
 
     void setCrossoverFreqs (std::atomic<float>* lo, std::atomic<float>* hi)
     {
@@ -27,7 +30,6 @@ public:
         xoverHi = hi;
     }
 
-    /** マウス操作用に APVTS パラメータとバインド (ステージ番号 1 or 2) */
     void bindStageParameters (juce::AudioProcessorValueTreeState& apvts, int stageNum)
     {
         stage = stageNum;
@@ -46,6 +48,8 @@ public:
         paramDown[2] = apvts.getParameter ("s" + st + "_down_h");
     }
 
+    std::function<void(int stageNum)> onStageSelected;
+
     void paint (juce::Graphics& g) override;
 
     // --- マウス操作 ---
@@ -59,24 +63,22 @@ private:
     void timerCallback() override;
 
     int stage = 1;
+    bool isSelected = false;
     const StageMeter* meter = nullptr;
     std::atomic<float>* xoverLo = nullptr;
     std::atomic<float>* xoverHi = nullptr;
 
-    juce::String title { "3-BAND OTT" };
+    juce::String title { "STAGE 1" };
 
-    // APVTS パラメータポインタ
     juce::RangedAudioParameter* paramGain[3] = { nullptr, nullptr, nullptr };
     juce::RangedAudioParameter* paramUp[3]   = { nullptr, nullptr, nullptr };
     juce::RangedAudioParameter* paramDown[3] = { nullptr, nullptr, nullptr };
 
-    // インタラクティブ操作用
     int hoveredBand = -1;
     int draggedBand = -1;
     enum DragTarget { TargetGain, TargetUpward, TargetDownward } dragTarget = TargetGain;
     float dragStartValue = 0.0f;
 
-    // 平滑化バッファ
     float smoothEnvDb[3]  = { -60.f, -60.f, -60.f };
     float smoothGainDb[3] = { 0.f, 0.f, 0.f };
 
@@ -87,6 +89,7 @@ private:
     static constexpr float kGainMax =  18.0f;
 
     int getBandAtPosition (juce::Point<int> pos) const;
+    bool isHeaderPosition (juce::Point<int> pos) const;
 
     static float levelToNorm (float db)
     {

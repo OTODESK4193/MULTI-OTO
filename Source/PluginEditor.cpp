@@ -8,21 +8,12 @@
 MultiOtoAudioProcessorEditor::ContentComponent::ContentComponent (
     MultiOtoAudioProcessor& proc, MultiOtoLookAndFeel& laf)
     : processor (proc),
-      mainPanel   (proc.apvts, laf),
-      stage1Panel (proc.apvts, 1, laf),
-      stage2Panel (proc.apvts, 2, laf)
+      mainPanel (proc.apvts, laf)
 {
     addAndMakeVisible (header);
     addAndMakeVisible (mainPanel);
-    addAndMakeVisible (stage1Panel);
-    addAndMakeVisible (stage2Panel);
 
-    // APVTS パラメータバインド (DynVisual からのドラッグ操作用)
     mainPanel.bindApvts (proc.apvts);
-
-    header.onTabChanged = [this] (TabHeader::Tab t) { setActiveTab (t); };
-
-    setActiveTab (TabHeader::Main);
 }
 
 MultiOtoAudioProcessorEditor::ContentComponent::~ContentComponent()
@@ -41,21 +32,11 @@ void MultiOtoAudioProcessorEditor::ContentComponent::resized()
 {
     auto area = getLocalBounds();
 
-    // ヘッダー (40px)
-    header.setBounds (area.removeFromTop (40));
+    // ヘッダー (32px)
+    header.setBounds (area.removeFromTop (32));
 
-    // 各タブのパネル領域
-    auto panelArea = area.reduced (6, 4);
-    mainPanel.setBounds   (panelArea);
-    stage1Panel.setBounds (panelArea);
-    stage2Panel.setBounds (panelArea);
-}
-
-void MultiOtoAudioProcessorEditor::ContentComponent::setActiveTab (TabHeader::Tab t)
-{
-    mainPanel.setVisible   (t == TabHeader::Main);
-    stage1Panel.setVisible (t == TabHeader::Stage1);
-    stage2Panel.setVisible (t == TabHeader::Stage2);
+    // 単一メインパネル領域
+    mainPanel.setBounds (area.reduced (4, 2));
 }
 
 void MultiOtoAudioProcessorEditor::ContentComponent::connectMeters()
@@ -65,8 +46,6 @@ void MultiOtoAudioProcessorEditor::ContentComponent::connectMeters()
 
     mainPanel.setMeters (&engine->s1Meter, &engine->s2Meter,
                          &engine->xoverLoAtomic, &engine->xoverHiAtomic);
-    stage1Panel.setMeter (&engine->s1Meter, &engine->xoverLoAtomic, &engine->xoverHiAtomic);
-    stage2Panel.setMeter (&engine->s2Meter, &engine->xoverLoAtomic, &engine->xoverHiAtomic);
 }
 
 // ============================================================================

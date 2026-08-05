@@ -10,8 +10,8 @@ namespace MOColors
     // --- 背景系 ---
     inline const juce::Colour bg        { 0xFF17141f };
     inline const juce::Colour panel     { 0xFF201c2b };
-    inline const juce::Colour panelLine { 0xFFe9e3f2 };   // 使用時 withAlpha(0.13f)
-    inline const juce::Colour grid      { 0xFFe9e3f2 };   // 使用時 withAlpha(0.08f)
+    inline const juce::Colour panelLine { 0xFFe9e3f2 };   // withAlpha(0.13f)
+    inline const juce::Colour grid      { 0xFFe9e3f2 };   // withAlpha(0.08f)
     inline const juce::Colour knobTrack { 0xFF2a2536 };
     inline const juce::Colour well      { 0xFF151220 };   // DynVisual 背景用
 
@@ -21,28 +21,34 @@ namespace MOColors
 
     // --- アクセント (機能別) ---
     inline const juce::Colour accent    { 0xFFFF6B00 };   // オレンジ (ヘッダー/ロゴ)
-    inline const juce::Colour mint      { 0xFFb5ead7 };   // Upward OTT / OSC
-    inline const juce::Colour pink      { 0xFFffb7c5 };   // Downward OTT / Master
+    inline const juce::Colour mint      { 0xFFb5ead7 };   // Upward OTT
+    inline const juce::Colour pink      { 0xFFffb7c5 };   // Downward OTT
     inline const juce::Colour babyBlue  { 0xFFaed9f7 };   // FX / OTT アクセント
-    inline const juce::Colour peach     { 0xFFffdac1 };   // Stage
+    inline const juce::Colour peach     { 0xFFffdac1 };   // Stage 1
     inline const juce::Colour lavender  { 0xFFc7ceea };   // Master
-    inline const juce::Colour lilac     { 0xFFe0c3fc };   // Modulation
+
+    // --- バンド別固有カラー (LOW, MID, HIGH) ---
+    inline const juce::Colour bandLowUp    { 0xFF64d2ff };  // LOW Upward (シアン)
+    inline const juce::Colour bandLowDn    { 0xFF3b82f6 };  // LOW Downward (ブルー)
+
+    inline const juce::Colour bandMidUp    { 0xFFfde047 };  // MID Upward (イエロー)
+    inline const juce::Colour bandMidDn    { 0xFFf59e0b };  // MID Downward (アンバー/オレンジ)
+
+    inline const juce::Colour bandHighUp   { 0xFFf472b6 };  // HIGH Upward (マゼンタピンク)
+    inline const juce::Colour bandHighDn   { 0xFFa855f7 };  // HIGH Downward (パープル)
 
     // --- パネル描画ヘルパー ---
     inline void paintPanel (juce::Graphics& g, juce::Rectangle<int> bounds)
     {
         auto b = bounds.toFloat();
-        // 微小な縦グラデーション
         g.setGradientFill (juce::ColourGradient (
             panel.brighter (0.03f), b.getX(), b.getY(),
             panel,                  b.getX(), b.getBottom(), false));
         g.fillRoundedRectangle (b, 6.0f);
 
-        // 上端 1px ハイライト
         g.setColour (panelLine.withAlpha (0.10f));
         g.drawHorizontalLine ((int) b.getY(), b.getX() + 6, b.getRight() - 6);
 
-        // 枠線
         g.setColour (panelLine.withAlpha (0.08f));
         g.drawRoundedRectangle (b.reduced (0.5f), 6.0f, 1.0f);
     }
