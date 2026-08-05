@@ -41,6 +41,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::crea
         addFloat("s" + st + "_depth_h", "S" + st + " High Depth", 0.0f, 100.0f, 50.0f);
         addFloat("s" + st + "_depth_m", "S" + st + " Mid Depth", 0.0f, 100.0f, 50.0f);
         addFloat("s" + st + "_depth_l", "S" + st + " Low Depth", 0.0f, 100.0f, 50.0f);
+
+        // Upward (弱音引き上げ %)
+        addFloat("s" + st + "_up_h", "S" + st + " High Upward", 0.0f, 100.0f, 100.0f);
+        addFloat("s" + st + "_up_m", "S" + st + " Mid Upward", 0.0f, 100.0f, 100.0f);
+        addFloat("s" + st + "_up_l", "S" + st + " Low Upward", 0.0f, 100.0f, 100.0f);
+
+        // Downward (大音量圧縮 %)
+        addFloat("s" + st + "_down_h", "S" + st + " High Downward", 0.0f, 100.0f, 100.0f);
+        addFloat("s" + st + "_down_m", "S" + st + " Mid Downward", 0.0f, 100.0f, 100.0f);
+        addFloat("s" + st + "_down_l", "S" + st + " Low Downward", 0.0f, 100.0f, 100.0f);
+
         addFloat("s" + st + "_time", "S" + st + " Macro Time", 10.0f, 1000.0f, 50.0f);
         addFloat("s" + st + "_mix", "S" + st + " Mix", 0.0f, 100.0f, 100.0f);
 
@@ -119,6 +130,14 @@ void MultiOtoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.s1_depth[0] = apvts.getRawParameterValue("s1_depth_l")->load(std::memory_order_relaxed);
     p.s1_depth[1] = apvts.getRawParameterValue("s1_depth_m")->load(std::memory_order_relaxed);
     p.s1_depth[2] = apvts.getRawParameterValue("s1_depth_h")->load(std::memory_order_relaxed);
+
+    p.s1_up[0] = apvts.getRawParameterValue("s1_up_l")->load(std::memory_order_relaxed);
+    p.s1_up[1] = apvts.getRawParameterValue("s1_up_m")->load(std::memory_order_relaxed);
+    p.s1_up[2] = apvts.getRawParameterValue("s1_up_h")->load(std::memory_order_relaxed);
+    p.s1_down[0] = apvts.getRawParameterValue("s1_down_l")->load(std::memory_order_relaxed);
+    p.s1_down[1] = apvts.getRawParameterValue("s1_down_m")->load(std::memory_order_relaxed);
+    p.s1_down[2] = apvts.getRawParameterValue("s1_down_h")->load(std::memory_order_relaxed);
+
     p.s1_time = apvts.getRawParameterValue("s1_time")->load(std::memory_order_relaxed);
     p.s1_mix = apvts.getRawParameterValue("s1_mix")->load(std::memory_order_relaxed);
     p.s1_atk[0] = apvts.getRawParameterValue("s1_atk_l")->load(std::memory_order_relaxed);
@@ -134,6 +153,13 @@ void MultiOtoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.s2_depth[0] = apvts.getRawParameterValue("s2_depth_l")->load(std::memory_order_relaxed);
     p.s2_depth[1] = apvts.getRawParameterValue("s2_depth_m")->load(std::memory_order_relaxed);
     p.s2_depth[2] = apvts.getRawParameterValue("s2_depth_h")->load(std::memory_order_relaxed);
+
+    p.s2_up[0] = apvts.getRawParameterValue("s2_up_l")->load(std::memory_order_relaxed);
+    p.s2_up[1] = apvts.getRawParameterValue("s2_up_m")->load(std::memory_order_relaxed);
+    p.s2_up[2] = apvts.getRawParameterValue("s2_up_h")->load(std::memory_order_relaxed);
+    p.s2_down[0] = apvts.getRawParameterValue("s2_down_l")->load(std::memory_order_relaxed);
+    p.s2_down[1] = apvts.getRawParameterValue("s2_down_m")->load(std::memory_order_relaxed);
+    p.s2_down[2] = apvts.getRawParameterValue("s2_down_h")->load(std::memory_order_relaxed);
     p.s2_time = apvts.getRawParameterValue("s2_time")->load(std::memory_order_relaxed);
     p.s2_mix = apvts.getRawParameterValue("s2_mix")->load(std::memory_order_relaxed);
     p.s2_atk[0] = apvts.getRawParameterValue("s2_atk_l")->load(std::memory_order_relaxed);

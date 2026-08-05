@@ -10,14 +10,15 @@ MultiOtoAudioProcessorEditor::ContentComponent::ContentComponent (
     : processor (proc),
       mainPanel   (proc.apvts, laf),
       stage1Panel (proc.apvts, 1, laf),
-      stage2Panel (proc.apvts, 2, laf),
-      masterPanel (proc.apvts, laf)
+      stage2Panel (proc.apvts, 2, laf)
 {
     addAndMakeVisible (header);
     addAndMakeVisible (mainPanel);
     addAndMakeVisible (stage1Panel);
     addAndMakeVisible (stage2Panel);
-    addAndMakeVisible (masterPanel);
+
+    // APVTS パラメータバインド (DynVisual からのドラッグ操作用)
+    mainPanel.bindApvts (proc.apvts);
 
     header.onTabChanged = [this] (TabHeader::Tab t) { setActiveTab (t); };
 
@@ -48,7 +49,6 @@ void MultiOtoAudioProcessorEditor::ContentComponent::resized()
     mainPanel.setBounds   (panelArea);
     stage1Panel.setBounds (panelArea);
     stage2Panel.setBounds (panelArea);
-    masterPanel.setBounds (panelArea);
 }
 
 void MultiOtoAudioProcessorEditor::ContentComponent::setActiveTab (TabHeader::Tab t)
@@ -56,7 +56,6 @@ void MultiOtoAudioProcessorEditor::ContentComponent::setActiveTab (TabHeader::Ta
     mainPanel.setVisible   (t == TabHeader::Main);
     stage1Panel.setVisible (t == TabHeader::Stage1);
     stage2Panel.setVisible (t == TabHeader::Stage2);
-    masterPanel.setVisible (t == TabHeader::Master);
 }
 
 void MultiOtoAudioProcessorEditor::ContentComponent::connectMeters()
@@ -68,8 +67,6 @@ void MultiOtoAudioProcessorEditor::ContentComponent::connectMeters()
                          &engine->xoverLoAtomic, &engine->xoverHiAtomic);
     stage1Panel.setMeter (&engine->s1Meter, &engine->xoverLoAtomic, &engine->xoverHiAtomic);
     stage2Panel.setMeter (&engine->s2Meter, &engine->xoverLoAtomic, &engine->xoverHiAtomic);
-    masterPanel.setMeters (&engine->s1Meter, &engine->s2Meter,
-                           &engine->xoverLoAtomic, &engine->xoverHiAtomic);
 }
 
 // ============================================================================
@@ -83,7 +80,6 @@ MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor (MultiOtoAudioProcess
     setOpaque (true);
     setLookAndFeel (&laf);
 
-    // LIFT-X 式: アスペクト比固定リサイズ
     constrainer.setFixedAspectRatio ((double) kBaseW / (double) kBaseH);
     constrainer.setMinimumSize (kBaseW / 2, kBaseH / 2);
     constrainer.setMaximumSize (kBaseW * 2, kBaseH * 2);
@@ -92,7 +88,6 @@ MultiOtoAudioProcessorEditor::MultiOtoAudioProcessorEditor (MultiOtoAudioProcess
 
     addAndMakeVisible (content);
 
-    // メーター接続
     content.connectMeters();
 
     setSize (kBaseW, kBaseH);

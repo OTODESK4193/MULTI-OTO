@@ -4,12 +4,10 @@
 #include "GUI/TabHeader.h"
 #include "GUI/MainPanel.h"
 #include "GUI/StagePanel.h"
-#include "GUI/MasterPanel.h"
 
 // ============================================================================
-//  LIFT-X 準拠 ContentComponent パターン
-//  内部は常に kBaseW (860px) × kBaseH (620px) の論理座標で動作し、
-//  ウィンドウリサイズ時はアフィン変換でスケーリングする。
+//  LIFT-X 準拠 ContentComponent パターン (全3タブ構成)
+//  内部は kBaseW (860px) × kBaseH (640px) の論理座標で動作
 // ============================================================================
 class MultiOtoAudioProcessorEditor : public juce::AudioProcessorEditor
 {
@@ -21,12 +19,11 @@ public:
 
 private:
     static constexpr int kBaseW = 860;
-    static constexpr int kBaseH = 620;
+    static constexpr int kBaseH = 640;
 
     MultiOtoAudioProcessor& audioProcessor;
     MultiOtoLookAndFeel laf;
 
-    // LIFT-X 式: アスペクト比固定リサイズ
     juce::ComponentBoundsConstrainer constrainer;
 
     struct ContentComponent : public juce::Component
@@ -43,10 +40,9 @@ private:
         MultiOtoAudioProcessor& processor;
 
         TabHeader header;
-        MainPanel   mainPanel;
-        StagePanel  stage1Panel;
-        StagePanel  stage2Panel;
-        MasterPanel masterPanel;
+        MainPanel  mainPanel;
+        StagePanel stage1Panel;
+        StagePanel stage2Panel;
     } content;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MultiOtoAudioProcessorEditor)

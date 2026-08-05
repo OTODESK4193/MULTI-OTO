@@ -9,8 +9,9 @@ struct StageMeter;
 
 // ============================================================================
 //  MainPanel — MAIN タブ
-//  全タブ共通の上部 DynVisual 描画エリア (高さ 200px)
-//  下部: PRE-DRIVE & X-OVER パラメータ (大きめノブでバランス配置)
+//  上部: DynVisual (Stage1 & Stage2 横並び)
+//  中段: PRE-DRIVE & CROSSOVER CONTROLS
+//  下段: MASTER OUTPUT & FILTER CONTROLS (旧Masterタブから移植)
 // ============================================================================
 class MainPanel : public juce::Component
 {
@@ -41,6 +42,7 @@ public:
         totalOttLabel.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)));
         addAndMakeVisible (totalOttLabel);
 
+        // PRE-DRIVE ノブ
         inGain.build    (apvts, "in_gain",    "IN GAIN",  this, laf);
         drive.build     (apvts, "drive",      "DRIVE",    this, laf);
         oddBlend.build  (apvts, "odd_blend",  "ODD",      this, laf);
@@ -48,20 +50,41 @@ public:
         xLow.build      (apvts, "xover_low",  "LOW X",    this, laf);
         xHigh.build     (apvts, "xover_high", "HIGH X",   this, laf);
 
+        // MASTER ノブ (移植)
+        postHPF.build   (apvts, "post_hpf",   "HPF",      this, laf);
+        postLPF.build   (apvts, "post_lpf",   "LPF",      this, laf);
+        dryWet.build    (apvts, "dry_wet",     "DRY/WET",  this, laf);
+        outGain.build   (apvts, "out_gain",    "OUT GAIN", this, laf);
+        limitCeil.build (apvts, "limit_ceil",  "CEILING",  this, laf);
+
+        phaseModeBox.addItemList ({ "COLOR PHASE", "ALIGN PHASE" }, 1);
+        phaseModeBox.setLookAndFeel (&laf);
+        phaseModeBox.setJustificationType (juce::Justification::centred);
+        addAndMakeVisible (phaseModeBox);
+        phaseModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
+            apvts, "phase_mode", phaseModeBox);
+
+        // DynVisuals (両ステージ)
         dynS1.setTitle ("STAGE 1 / 3-BAND OTT");
         dynS2.setTitle ("STAGE 2 / 3-BAND OTT");
         addAndMakeVisible (dynS1);
         addAndMakeVisible (dynS2);
 
-        sectionLabel.setText ("PRE-DRIVE & CROSSOVER CONTROLS", juce::dontSendNotification);
-        sectionLabel.setColour (juce::Label::textColourId, MOColors::textDim);
-        sectionLabel.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)));
-        addAndMakeVisible (sectionLabel);
+        // セクションラベル
+        preLabel.setText ("PRE-DRIVE & CROSSOVER", juce::dontSendNotification);
+        masterLabel.setText ("MASTER CONTROLS", juce::dontSendNotification);
+        for (auto* lbl : { &preLabel, &masterLabel })
+        {
+            lbl->setColour (juce::Label::textColourId, MOColors::textDim);
+            lbl->setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)));
+            addAndMakeVisible (lbl);
+        }
     }
 
     ~MainPanel() override
     {
         totalOttBox.setLookAndFeel (nullptr);
+        phaseModeBox.setLookAndFeel (nullptr);
     }
 
     void setMeters (const StageMeter* s1, const StageMeter* s2,
@@ -73,6 +96,13 @@ public:
         dynS2.setCrossoverFreqs (xLo, xHi);
     }
 
+    /** DynVisual からのドラッグ操作用 APVTS 接続 */
+    void bindApvts (juce::AudioProcessorValueTreeState& apvts)
+    {
+        dynS1.bindStageParameters (apvts, 1);
+        dynS2.bindStageParameters (apvts, 2);
+    }
+
     void paint (juce::Graphics& g) override
     {
         MOColors::paintPanel (g, getLocalBounds());
@@ -80,49 +110,62 @@ public:
 
     void resized() override
     {
-        auto area = getLocalBounds().reduced (12, 10);
+        auto area = getLocalBounds().reduced (12, 8);
 
-        // 1. 全タブ共通 上部 DynVisual 描画エリア (200px)
-        auto dynArea = area.removeFromTop (200);
+        // 1. 上部 DynVisual 描画エリア (高さ 190px)
+        auto dynArea = area.removeFromTop (190);
         int halfW = (dynArea.getWidth() - 12) / 2;
         dynS1.setBounds (dynArea.removeFromLeft (halfW));
         dynArea.removeFromLeft (12);
         dynS2.setBounds (dynArea.removeFromLeft (halfW));
 
-        area.removeFromTop (12);
+        area.removeFromTop (8);
 
-        // 2. 下部 コントロールエリア
-        sectionLabel.setBounds (area.removeFromTop (20));
+        int kS   = 78;   // ノブサイズ 78px
+        int gapX = 18;
+
+        // 2. 中段 PRE-DRIVE & CROSSOVER
+        preLabel.setBounds (area.removeFromTop (16));
+        area.removeFromTop (4);
+
+        auto preRow = area.removeFromTop (kS);
+        inGain.setBounds    (preRow.removeFromLeft (kS)); preRow.removeFromLeft (gapX);
+        drive.setBounds     (preRow.removeFromLeft (kS)); preRow.removeFromLeft (gapX);
+        oddBlend.setBounds  (preRow.removeFromLeft (kS)); preRow.removeFromLeft (gapX);
+        evenBlend.setBounds (preRow.removeFromLeft (kS)); preRow.removeFromLeft (gapX + 15);
+
+        auto onCell = preRow.removeFromLeft (kS);
+        preDriveBtn.setBounds (onCell.withSizeKeepingCentre (72, 26));
+        preRow.removeFromLeft (gapX);
+
+        auto countCell = preRow.removeFromLeft (kS);
+        totalOttBox.setBounds (countCell.withSizeKeepingCentre (72, 24).translated (0, -6));
+        totalOttLabel.setBounds (countCell.withSizeKeepingCentre (72, 14).translated (0, 14));
+        preRow.removeFromLeft (gapX + 15);
+
+        xLow.setBounds  (preRow.removeFromLeft (kS)); preRow.removeFromLeft (gapX);
+        xHigh.setBounds (preRow.removeFromLeft (kS));
+
         area.removeFromTop (10);
 
-        int kS   = 85;   // ノブの大きさを85pxに拡大
-        int gapX = 24;
+        // 3. 下段 MASTER CONTROLS (移植エリア)
+        masterLabel.setBounds (area.removeFromTop (16));
+        area.removeFromTop (4);
 
-        // ノブ行1: IN GAIN, DRIVE, ODD, EVEN, LOW X, HIGH X (6個を均等配置)
-        auto row1 = area.removeFromTop (kS);
-        inGain.setBounds    (row1.removeFromLeft (kS)); row1.removeFromLeft (gapX);
-        drive.setBounds     (row1.removeFromLeft (kS)); row1.removeFromLeft (gapX);
-        oddBlend.setBounds  (row1.removeFromLeft (kS)); row1.removeFromLeft (gapX);
-        evenBlend.setBounds (row1.removeFromLeft (kS)); row1.removeFromLeft (gapX + 20);
+        auto mRow = area.removeFromTop (kS);
+        postHPF.setBounds   (mRow.removeFromLeft (kS)); mRow.removeFromLeft (gapX);
+        postLPF.setBounds   (mRow.removeFromLeft (kS)); mRow.removeFromLeft (gapX + 10);
 
-        xLow.setBounds  (row1.removeFromLeft (kS)); row1.removeFromLeft (gapX);
-        xHigh.setBounds (row1.removeFromLeft (kS));
+        phaseModeBox.setBounds (mRow.removeFromLeft (130).withSizeKeepingCentre (125, 26));
+        mRow.removeFromLeft (gapX + 15);
 
-        area.removeFromTop (15);
-
-        // スイッチ & カウント行
-        auto row2 = area.removeFromTop (36);
-        auto onCell = row2.removeFromLeft (kS);
-        preDriveBtn.setBounds (onCell.withSizeKeepingCentre (70, 28));
-        row2.removeFromLeft (gapX);
-
-        auto countCell = row2.removeFromLeft (kS);
-        totalOttBox.setBounds (countCell.withSizeKeepingCentre (75, 26).translated (0, -6));
-        totalOttLabel.setBounds (countCell.withSizeKeepingCentre (75, 14).translated (0, 14));
+        dryWet.setBounds    (mRow.removeFromLeft (kS)); mRow.removeFromLeft (gapX);
+        outGain.setBounds   (mRow.removeFromLeft (kS)); mRow.removeFromLeft (gapX);
+        limitCeil.setBounds (mRow.removeFromLeft (kS));
     }
 
 private:
-    juce::TextButton preDriveBtn { "PRE-DRIVE ON" };
+    juce::TextButton preDriveBtn { "PRE-DRIVE" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> preDriveAt;
 
     juce::ComboBox totalOttBox;
@@ -132,8 +175,13 @@ private:
     ArcKnob inGain, drive, oddBlend, evenBlend;
     ArcKnob xLow, xHigh;
 
+    // Master 移植ノブ
+    ArcKnob postHPF, postLPF, dryWet, outGain, limitCeil;
+    juce::ComboBox phaseModeBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> phaseModeAttachment;
+
     DynVisualComponent dynS1, dynS2;
-    juce::Label sectionLabel;
+    juce::Label preLabel, masterLabel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainPanel)
 };

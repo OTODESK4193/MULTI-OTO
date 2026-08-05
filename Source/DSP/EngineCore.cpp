@@ -52,8 +52,8 @@ void EngineCore::updateParameters(const EngineParams& p) {
 
     postHpfL.setCutoffFrequency(p.post_hpf); postHpfR.setCutoffFrequency(p.post_hpf); postLpfL.setCutoffFrequency(p.post_lpf); postLpfR.setCutoffFrequency(p.post_lpf);
     int half = p.total_ott_count / 2;
-    for (int i = 0; i < half; ++i) nodes[i].setParameters(p.s1_gain, p.s1_depth, p.s1_time, p.s1_atk, p.s1_rel, p.s1_mix);
-    for (int i = half; i < p.total_ott_count; ++i) nodes[i].setParameters(p.s2_gain, p.s2_depth, p.s2_time, p.s2_atk, p.s2_rel, p.s2_mix);
+    for (int i = 0; i < half; ++i) nodes[i].setParameters(p.s1_gain, p.s1_depth, p.s1_up, p.s1_down, p.s1_time, p.s1_atk, p.s1_rel, p.s1_mix);
+    for (int i = half; i < p.total_ott_count; ++i) nodes[i].setParameters(p.s2_gain, p.s2_depth, p.s2_up, p.s2_down, p.s2_time, p.s2_atk, p.s2_rel, p.s2_mix);
     currentLimitThreshold = FastMath::fast_exp2(p.limitCeil * 0.16609f);
 }
 

@@ -3,13 +3,13 @@
 #include "ColorPalette.h"
 
 // ============================================================================
-//  TabHeader — LIFT-X 準拠のタブナビゲーションヘッダー
-//  高さ 44px、左端にロゴ、右にタブボタン群を並べる。
+//  TabHeader — LIFT-X 準拠のタブナビゲーションヘッダー (全3タブ)
+//  MAIN, STAGE 1, STAGE 2
 // ============================================================================
 class TabHeader : public juce::Component
 {
 public:
-    enum Tab { Main = 0, Stage1, Stage2, Master, NumTabs };
+    enum Tab { Main = 0, Stage1, Stage2, NumTabs };
 
     TabHeader()
     {
@@ -77,13 +77,13 @@ public:
         auto area = getLocalBounds();
         area.removeFromLeft (130);  // ロゴ領域
 
-        int btnW = 80;
-        int gap  = 5;
+        int btnW = 90;
+        int gap  = 6;
         int startX = area.getX() + 10;
 
         for (int i = 0; i < tabButtons.size(); ++i)
         {
-            tabButtons[i]->setBounds (startX + i * (btnW + gap), 6, btnW, getHeight() - 12);
+            tabButtons[i]->setBounds (startX + i * (btnW + gap), 5, btnW, getHeight() - 10);
         }
     }
 
@@ -91,7 +91,7 @@ private:
     Tab activeTab = Main;
     juce::OwnedArray<juce::TextButton> tabButtons;
 
-    const juce::String tabNames[NumTabs] = { "MAIN", "STAGE 1", "STAGE 2", "MASTER" };
+    const juce::String tabNames[NumTabs] = { "MAIN", "STAGE 1", "STAGE 2" };
 
     static juce::Colour getTabAccent (Tab t)
     {
@@ -100,7 +100,6 @@ private:
             case Main:    return MOColors::accent;
             case Stage1:  return MOColors::peach;
             case Stage2:  return MOColors::babyBlue;
-            case Master:  return MOColors::lavender;
             default:      return MOColors::accent;
         }
     }

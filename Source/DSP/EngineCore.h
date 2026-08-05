@@ -15,7 +15,10 @@ struct StageMeter {
 };
 
 struct EngineParams {
-    float inGain, drive, odd, even, xLow, xHigh, s1_gain[3], s1_depth[3], s1_time, s1_mix, s1_atk[3], s1_rel[3], s2_gain[3], s2_depth[3], s2_time, s2_mix, s2_atk[3], s2_rel[3], post_hpf, post_lpf, dryWet, outGain, limitCeil;
+    float inGain, drive, odd, even, xLow, xHigh;
+    float s1_gain[3], s1_depth[3], s1_up[3], s1_down[3], s1_time, s1_mix, s1_atk[3], s1_rel[3];
+    float s2_gain[3], s2_depth[3], s2_up[3], s2_down[3], s2_time, s2_mix, s2_atk[3], s2_rel[3];
+    float post_hpf, post_lpf, dryWet, outGain, limitCeil;
     int total_ott_count, phase_mode;
     bool predrive_on, s1_on, s2_on;
 };
