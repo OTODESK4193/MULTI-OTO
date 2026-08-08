@@ -24,6 +24,30 @@ juce::String MultiOtoLookAndFeel::formatValue(double v) {
     return juce::String(v, 1);
 }
 
+// ============================================================================
+//  MOD レンジ算出
+//  変調量 (-1..+1) を実際の値へ展開し、ノブ上での「振れ幅」を求める。
+//  ModMatrix::applyModToValue を使うので、表示と実音の倍率は必ず一致する。
+// ============================================================================
+bool MultiOtoLookAndFeel::getModSpan(juce::Slider& s, double& loOut, double& hiOut, double& curOut) const {
+    if (modMatrix == nullptr) return false;
+
+    const int dst = static_cast<int>(s.getProperties().getWithDefault("modDst", 0));
+    if (dst <= 0) return false;
+
+    const float rLo = modMatrix->getRangeMinForGui(dst);
+    const float rHi = modMatrix->getRangeMaxForGui(dst);
+    if (rHi - rLo < 1.0e-4f) return false;   // 何も割り当たっていない
+
+    const double base = s.getValue();
+    const double mn = s.getMinimum(), mx = s.getMaximum();
+
+    loOut  = juce::jlimit(mn, mx, ModMatrix::applyModToValue(dst, base, rLo));
+    hiOut  = juce::jlimit(mn, mx, ModMatrix::applyModToValue(dst, base, rHi));
+    curOut = juce::jlimit(mn, mx, ModMatrix::applyModToValue(dst, base, modMatrix->getForGui(dst)));
+    return true;
+}
+
 void MultiOtoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h,
                                            float sliderPos, float startAngle, float endAngle,
                                            juce::Slider& slider) {
@@ -45,6 +69,31 @@ void MultiOtoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int 
         juce::Path fill; fill.addCentredArc(cx, cy, r, r, 0.0f, startAngle, angle, true);
         g.setColour(accent);
         g.strokePath(fill, juce::PathStrokeType(th, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    }
+
+    // --- MOD レンジ (アークの外側に一回り大きい帯として重ねる) ---
+    double mLo, mHi, mCur;
+    if (getModSpan(slider, mLo, mHi, mCur)) {
+        auto toAngle = [&](double v) {
+            return startAngle + (float)slider.valueToProportionOfLength(v) * (endAngle - startAngle);
+            };
+        const float aLo = toAngle(juce::jmin(mLo, mHi));
+        const float aHi = toAngle(juce::jmax(mLo, mHi));
+        const float rr  = r + th * 0.72f;
+
+        if (aHi - aLo > 0.004f) {
+            juce::Path span; span.addCentredArc(cx, cy, rr, rr, 0.0f, aLo, aHi, true);
+            g.setColour(MOColors::mint.withAlpha(0.35f));
+            g.strokePath(span, juce::PathStrokeType(th * 0.42f,
+                juce::PathStrokeType::curved, juce::PathStrokeType::butt));
+        }
+
+        // 現在の変調位置を示すドット
+        const float aCur = toAngle(mCur);
+        const float dx = cx + std::sin(aCur) * rr;
+        const float dy = cy - std::cos(aCur) * rr;
+        g.setColour(MOColors::mint);
+        g.fillEllipse(dx - th * 0.26f, dy - th * 0.26f, th * 0.52f, th * 0.52f);
     }
 
     // 中心キャップ
@@ -85,6 +134,24 @@ void MultiOtoLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
     if (fw > 2.0f) {
         g.setColour(accent.withAlpha(0.60f));
         g.fillRoundedRectangle(b.withWidth(fw), 3.0f);
+    }
+
+    // --- MOD レンジ (バーの上下いっぱいに薄い帯 + 現在位置の縦線) ---
+    double mLo, mHi, mCur;
+    if (getModSpan(slider, mLo, mHi, mCur)) {
+        auto toX = [&](double v) {
+            return b.getX() + b.getWidth() * (float)slider.valueToProportionOfLength(v);
+            };
+        const float xa = toX(juce::jmin(mLo, mHi));
+        const float xb = toX(juce::jmax(mLo, mHi));
+
+        if (xb - xa > 1.0f) {
+            g.setColour(MOColors::mint.withAlpha(0.28f));
+            g.fillRoundedRectangle(xa, b.getY(), xb - xa, b.getHeight(), 3.0f);
+        }
+        const float xc = toX(mCur);
+        g.setColour(MOColors::mint);
+        g.fillRect(xc - 1.0f, b.getY() + 1.0f, 2.0f, b.getHeight() - 2.0f);
     }
 
     // 文字は「塗り部分」と「未塗り部分」でクリップを分けて 2 回描く。

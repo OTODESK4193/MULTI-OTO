@@ -6,7 +6,8 @@
 //            ENV FOLLOW (入力レベル追従)  ※本機はエフェクトなので Velocity や
 //                                            Note は存在しない。代わりに入力の
 //                                            音量そのものをソースにする。
-//            RANDOM (フリーランの S&H)
+//            DRIFT (連続的にゆらぐランダム。階段状に飛ぶ LFO の S&H / Rnd Trig
+//                   とは性格を分けてあり、聴けば区別がつくようにしている)
 //  Slots   : 8 ( Source x Amount(-1..+1) -> Destination, Uni / Bipolar )
 //  Dests   : TIME / クロスオーバー / MIX / 各バンドの ATK・REL / LFO Rate
 //
@@ -32,7 +33,7 @@ public:
         SrcNone = 0,
         SrcLfo1, SrcLfo2, SrcLfo3, SrcLfo4,
         SrcEnvFollow,
-        SrcRandom,
+        SrcDrift,        // 旧 SrcRandom。値は変えないこと (セッション互換)
         NumSrcs
     };
 
@@ -58,7 +59,7 @@ public:
 
     static juce::StringArray getSourceNames()
     {
-        return { "None", "LFO 1", "LFO 2", "LFO 3", "LFO 4", "Env Follow", "Random" };
+        return { "None", "LFO 1", "LFO 2", "LFO 3", "LFO 4", "Env Follow", "Drift" };
     }
 
     /** Dst enum と 1:1 で対応させること (順番を変えない) */
@@ -109,13 +110,16 @@ public:
     void reset()
     {
         for (auto& l : lfoState) l = {};
-        envFollow = 0.0f;
-        randomSH  = 0.0f;
-        randomCountdown = 0;
+        envFollow   = 0.0f;
+        driftValue  = 0.0f;
+        driftTarget = 0.0f;
+        driftCountdown = 0;
         destAccum.fill (0.0f);
         rangeMin.fill (0.0f);
         rangeMax.fill (0.0f);
         for (auto& a : guiDestAccum) a.store (0.0f, std::memory_order_relaxed);
+        for (auto& a : guiRangeMin)  a.store (0.0f, std::memory_order_relaxed);
+        for (auto& a : guiRangeMax)  a.store (0.0f, std::memory_order_relaxed);
         for (auto& a : guiLfoValue)  a.store (0.0f, std::memory_order_relaxed);
     }
 
@@ -176,17 +180,28 @@ public:
             while (st.phase2 >= 1.0) st.phase2 -= 1.0;
         }
 
-        // --- ENV FOLLOW / RANDOM ---
+        // --- ENV FOLLOW / DRIFT ---
         src[SrcEnvFollow] = envFollow;
 
-        // RANDOM は LFO と無関係にゆっくり更新される自走 S&H
-        if (--randomCountdown <= 0)
+        // DRIFT は「階段状に飛ばない」連続的なランダム。
+        // 約 1 秒ごとに新しい目標値を引き、そこへ時定数 0.4 秒で滑らかに寄る。
+        //   ・LFO の S&H      : 一定周期で毎回カクッと飛ぶ
+        //   ・LFO の Rnd Trig : 一定周期だが 50% の確率でしか飛ばない (リズムが不規則)
+        //   ・DRIFT           : そもそも飛ばない。ゆらゆらと当てもなく漂う
+        // この 3 つを聴き分けられるように、あえて性格を分けている。
         {
-            randomSH = rng.nextFloat() * 2.0f - 1.0f;
             const int blocksPerSec = juce::jmax (1, (int) (sampleRate / juce::jmax (1, numSamples)));
-            randomCountdown = juce::jmax (1, blocksPerSec / 8);   // 約 8 回/秒
+            if (--driftCountdown <= 0)
+            {
+                driftTarget = rng.nextFloat() * 2.0f - 1.0f;
+                driftCountdown = juce::jmax (1, blocksPerSec);
+            }
+
+            const float blockSec = (float) ((double) numSamples / sampleRate);
+            const float coef = 1.0f - std::exp (-blockSec / 0.40f);
+            driftValue += juce::jlimit (0.0f, 1.0f, coef) * (driftTarget - driftValue);
         }
-        src[SrcRandom] = randomSH;
+        src[SrcDrift] = driftValue;
 
         // --- スロット集計 ---
         for (const auto& s : p.slot)
@@ -214,7 +229,11 @@ public:
         rangeMax  = localMax;
 
         for (size_t d = 0; d < NumDsts; ++d)
+        {
             guiDestAccum[d].store (localAccum[d], std::memory_order_relaxed);
+            guiRangeMin[d] .store (localMin[d],   std::memory_order_relaxed);
+            guiRangeMax[d] .store (localMax[d],   std::memory_order_relaxed);
+        }
     }
 
     // ------------------------------------------------------------------
@@ -229,6 +248,16 @@ public:
         return guiDestAccum[(size_t) juce::jlimit (0, (int) NumDsts - 1, dst)].load (std::memory_order_relaxed);
     }
 
+    /** GUI 用: この行き先に掛かる変調の下限 / 上限 (-1..+1 の抽象量) */
+    float getRangeMinForGui (int dst) const noexcept
+    {
+        return guiRangeMin[(size_t) juce::jlimit (0, (int) NumDsts - 1, dst)].load (std::memory_order_relaxed);
+    }
+    float getRangeMaxForGui (int dst) const noexcept
+    {
+        return guiRangeMax[(size_t) juce::jlimit (0, (int) NumDsts - 1, dst)].load (std::memory_order_relaxed);
+    }
+
     float getLfoValue (int i) const noexcept
     {
         return guiLfoValue[(size_t) juce::jlimit (0, kNumLfos - 1, i)].load (std::memory_order_relaxed);
@@ -236,7 +265,7 @@ public:
 
     static bool isBipolarSource (int s) noexcept
     {
-        return (s >= SrcLfo1 && s <= SrcLfo4) || s == SrcRandom;
+        return (s >= SrcLfo1 && s <= SrcLfo4) || s == SrcDrift;
     }
 
     // ==================================================================
@@ -305,9 +334,10 @@ private:
     double sampleRate = 44100.0;
     std::array<LfoState, kNumLfos> lfoState;
 
-    float envFollow = 0.0f;
-    float randomSH  = 0.0f;
-    int   randomCountdown = 0;
+    float envFollow   = 0.0f;
+    float driftValue  = 0.0f;
+    float driftTarget = 0.0f;
+    int   driftCountdown = 0;
 
     std::array<float, NumDsts> destAccum {};
     std::array<float, NumDsts> rangeMin {};
@@ -316,5 +346,7 @@ private:
     juce::Random rng;
 
     std::array<std::atomic<float>, NumDsts>  guiDestAccum {};
+    std::array<std::atomic<float>, NumDsts>  guiRangeMin {};
+    std::array<std::atomic<float>, NumDsts>  guiRangeMax {};
     std::array<std::atomic<float>, kNumLfos> guiLfoValue {};
 };

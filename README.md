@@ -41,9 +41,15 @@ Simultaneous upward and downward compression per band, with RMS envelope detecti
 
 C2-continuous polynomial soft clipper with anti-derivative antialiasing. Independent Drive, Odd and Even harmonic controls.
 
+### Modulation Matrix *(new in 1.1.0)*
+
+Four LFOs with seven waves each (Sine / Triangle / Saw / Square / S&H / Chaos / **Rnd Trig**), free-running or tempo-synced. Two extra sources take the place of the velocity and note that an effect never receives: **Env Follow** tracks the input level, and **Drift** wanders continuously without ever stepping.
+
+Eight slots route any source to 24 destinations — both stages' Time, crossovers, Mix and all twelve band attacks and releases, plus **the LFO rates themselves** so one LFO can stretch another's period. Frequencies and times modulate exponentially (±2 to ±3 octaves) rather than by addition, so they swing symmetrically instead of collapsing at the low end. Every modulated knob shows its live range as an arc.
+
 ### Preset Browser & Config
 
-30 factory presets across Basic / Bass / Texture / Destroy / Drive / Utility, plus user preset saving. Six colour themes and configurable limiter mode (LIMIT / CLIP), ceiling and release.
+30 factory presets across Basic / Bass / Texture / Destroy / Drive / Utility, plus user preset saving. Ten colour themes that recolour the knobs and meters as well as the background, and a configurable limiter (LIMIT / CLIP mode, ceiling, release).
 
 ### AVX2 SIMD Engine
 
@@ -59,7 +65,7 @@ C2-continuous polynomial soft clipper with anti-derivative antialiasing. Indepen
 
 **Fixed — crossover reconstruction error.** The low band was missing the high crossover's allpass, so the three bands did not sum flat. That error compounded across every stage. Corrected.
 
-**New** — independent per-stage crossovers with LINK, meter boundary dragging, preset browser with 30 factory presets, CONFIG panel with six colour themes and limiter mode/ceiling/release.
+**New** — modulation matrix (4 LFOs + Env Follow + Drift, 8 slots, 24 destinations, live range display on every target knob), independent per-stage crossovers with LINK, meter boundary dragging, preset browser with 30 factory presets, CONFIG panel with ten colour themes and limiter mode/ceiling/release.
 
 **Redesigned GUI** — knob diameter roughly doubled (31 px → 65 px), both stages visible at once in a 3 × 5 band matrix, window reduced from 880 × 750 to 880 × 620.
 

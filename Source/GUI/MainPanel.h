@@ -4,6 +4,7 @@
 #include "ColorPalette.h"
 #include "MinimalUI.h"
 #include "DynVisual.h"
+#include "DSP/ModMatrix.h"
 
 struct StageMeter;
 
@@ -16,7 +17,8 @@ struct StageMeter;
 //         各ステージ = TIME/MIX と LOW X/HIGH X のバー
 //                    + 「3行 (LOW/MID/HIGH) × 5列 (GAIN/UP/DN/ATK/REL)」の行列
 // ============================================================================
-class MainPanel : public juce::Component
+class MainPanel : public juce::Component,
+                  private juce::Timer
 {
 public:
     MainPanel (juce::AudioProcessorValueTreeState& apvts, MultiOtoLookAndFeel& laf)
@@ -97,6 +99,8 @@ public:
             addAndMakeVisible (l);
         }
 
+        assignModDestinations();
+
         // LINK: Stage1 の XO を動かしたら Stage2 へ写す。
         // プリセット読込中は beginParameterBatch() で抑止されるので上書きされない。
         s1XLow.slider.onValueChange  = [this] { mirrorXoverIfLinked(); };
@@ -173,6 +177,13 @@ public:
     {
         dynS1.setMeter (s1);
         dynS2.setMeter (s2);
+    }
+
+    /** MOD レンジ表示用。エディタから ModMatrix を差し込む。 */
+    void setModMatrix (const ModMatrix* m)
+    {
+        matrix = m;
+        if (matrix != nullptr) startTimerHz (24);
     }
 
     void bindApvts (juce::AudioProcessorValueTreeState& apvts)
@@ -255,6 +266,57 @@ public:
     }
 
 private:
+    // ------------------------------------------------------------------
+    /** どのノブがどの MOD 行き先かを結びつける。
+        これで drawRotarySlider / drawLinearSlider が変調レンジを描けるようになる。 */
+    void assignModDestinations()
+    {
+        auto reg = [this] (ArcKnob& k, int dst) {
+            k.setModDest (dst);
+            modTargets.push_back ({ &k, dst });
+        };
+
+        reg (s1Time,  ModMatrix::DstS1Time);
+        reg (s2Time,  ModMatrix::DstS2Time);
+        reg (s1Mix,   ModMatrix::DstS1Mix);
+        reg (s2Mix,   ModMatrix::DstS2Mix);
+        reg (s1XLow,  ModMatrix::DstS1XLow);
+        reg (s1XHigh, ModMatrix::DstS1XHigh);
+        reg (s2XLow,  ModMatrix::DstS2XLow);
+        reg (s2XHigh, ModMatrix::DstS2XHigh);
+
+        for (int b = 0; b < 3; ++b)
+        {
+            reg (s1Atk[b], ModMatrix::DstS1AtkL + b);
+            reg (s1Rel[b], ModMatrix::DstS1RelL + b);
+            reg (s2Atk[b], ModMatrix::DstS2AtkL + b);
+            reg (s2Rel[b], ModMatrix::DstS2RelL + b);
+        }
+
+        lastModValue.assign (modTargets.size(), 0.0f);
+    }
+
+    /** 変調が動いている行き先だけを再描画する (全面 repaint は避ける) */
+    void timerCallback() override
+    {
+        if (matrix == nullptr) return;
+
+        for (size_t i = 0; i < modTargets.size(); ++i)
+        {
+            const int dst = modTargets[i].second;
+            const float span = matrix->getRangeMaxForGui (dst) - matrix->getRangeMinForGui (dst);
+            const float cur  = (span > 1.0e-4f) ? matrix->getForGui (dst) : 0.0f;
+
+            // 変調が「今切れた」場合も 1 回だけ描き直す必要がある
+            if (std::abs (cur - lastModValue[i]) > 0.002f
+                || (span <= 1.0e-4f && lastModValue[i] != 0.0f))
+            {
+                lastModValue[i] = cur;
+                modTargets[i].first->slider.repaint();
+            }
+        }
+    }
+
     // ------------------------------------------------------------------
     void buildStage (juce::AudioProcessorValueTreeState& apvts, MultiOtoLookAndFeel& laf, int s,
                      ArcKnob* gn, ArcKnob* up, ArcKnob* dn, ArcKnob& tm, ArcKnob& mx,
@@ -376,6 +438,10 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> s1OnAt, s2OnAt, xoverLinkAt;
 
     int mirrorSuppress = 0;
+
+    const ModMatrix* matrix = nullptr;
+    std::vector<std::pair<ArcKnob*, int>> modTargets;
+    std::vector<float> lastModValue;
 
     ArcKnob s1Gain[3], s1Up[3], s1Dn[3], s1Time, s1Mix, s1Atk[3], s1Rel[3], s1XLow, s1XHigh;
     ArcKnob s2Gain[3], s2Up[3], s2Dn[3], s2Time, s2Mix, s2Atk[3], s2Rel[3], s2XLow, s2XHigh;

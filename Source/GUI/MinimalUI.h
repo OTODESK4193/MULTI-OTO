@@ -2,6 +2,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "ColorPalette.h"
+#include "DSP/ModMatrix.h"
 
 // ============================================================================
 //  MultiOtoLookAndFeel
@@ -35,7 +36,15 @@ public:
     /** カラーテーマ切替後に LookAndFeel 側の色を貼り直す */
     void refreshColours();
 
+    /** MOD レンジ表示に使う。スライダー側は getProperties()["modDst"] で行き先を持つ。 */
+    void setModMatrix (const ModMatrix* m) { modMatrix = m; }
+
 private:
+    /** そのスライダーに掛かっている変調の下限・上限を「値」で返す。
+        変調が無ければ false。 */
+    bool getModSpan (juce::Slider& s, double& loOut, double& hiOut, double& curOut) const;
+
+    const ModMatrix* modMatrix = nullptr;
     juce::Font groupFont;
 };
 
@@ -63,4 +72,7 @@ struct ArcKnob {
 
     /** テーマ切替時にアクセント色を貼り直す */
     void setAccent(juce::Colour c);
+
+    /** MOD の行き先 (ModMatrix::Dst)。設定すると変調レンジが描画される。 */
+    void setModDest(int dst) { slider.getProperties().set("modDst", dst); }
 };

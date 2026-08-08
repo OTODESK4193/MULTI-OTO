@@ -164,7 +164,7 @@ Open it from the **MOD** button in the header. This drives MULTI-OTO's own param
 |---|---|
 | **LFO 1-4** | Independent low-frequency oscillators. Bipolar (-1 to +1) |
 | **Env Follow** | The **input level itself**. Unipolar (0 to 1). Lets the bands move only while something is playing |
-| **Random** | A free-running sample & hold that jumps about 8 times a second, unrelated to the LFOs. Bipolar |
+| **Drift** | **Continuous** randomness that never steps. It picks a new target roughly once a second and eases toward it over 0.4 s. Bipolar |
 
 MULTI-OTO is an effect and receives no MIDI notes, so **Env Follow** takes the place of Velocity and Note.
 
@@ -180,6 +180,18 @@ MULTI-OTO is an effect and receives no MIDI notes, so **Env Follow** takes the p
 **Chaos** layers the fundamental with a frequency √2 times higher — an irrational ratio, so the shape never repeats.
 
 **Rnd Trig** only updates its value on **50 % of cycles**. The period stays constant but whether it moves does not, which stalls and stutters like a glitching step sequencer. This is the most powerful wave for artifact work.
+
+#### Telling the three random sources apart
+
+They all produce arbitrary values, but they **move** in completely different ways.
+
+| | Motion | Period | Use for |
+|---|---|---|---|
+| LFO **S&H** | Steps abruptly | Fixed (set by RATE, can sync) | Switching values in time with the beat |
+| LFO **Rnd Trig** | Steps, but **skips half the time** | Fixed period, irregular events | Stuttering, gap-ridden glitches |
+| Source **Drift** | **Never steps — it wanders** | No period (direction changes about once a second) | Organic wobble, as if nudged by hand |
+
+S&H and Rnd Trig follow the LFO's RATE, so they **can lock to tempo**. Drift has no concept of sync; it just keeps drifting.
 
 The bar on the right shows each LFO's live value — centre is zero, left and right are ±.
 
@@ -204,13 +216,20 @@ Frequencies and times modulate **exponentially** rather than by addition. Adding
 
 **Modulating one LFO's rate from another** is the heart of this matrix — the period itself stretches and contracts, breaking out of simple repetition. An LFO can even modulate its own rate (it resolves safely with one block of delay).
 
-Modulation is computed at block rate and knob positions do not move. The base value is left alone and the offset is applied on the way into the DSP.
+### Modulation range display
+
+Any knob that is a destination grows a **faint band around its outer edge** — that is the span the current assignment can sweep — with a **bright dot** riding it at the live position. On the TIME / MIX / LOW X / HIGH X bars the span appears as a tinted region with a vertical line for the current value.
+
+The band is computed through `ModMatrix::applyModToValue()`, the same function the DSP uses, so **what you see is exactly what you hear**.
+
+Modulation is computed at block rate and the knobs themselves do not move — the base value is preserved and the offset is applied on the way into the DSP. That is the usual synth convention, and it means you can still edit the base value while modulation is running.
 
 ### Starting points
 
 - **LFO1 (Sine, 1/4 sync) → S1 Low X, 40 %** — the low split point rides the beat and the bass centre of gravity sways.
 - **LFO2 (Rnd Trig, 1/16 sync) → S1 Rel Hi, 80 %** — the high band's release stretches irregularly and the tail stumbles.
 - **Env Follow → S2 Mix, UNI on, 60 %** — stage 2 only bites while the signal is loud.
+- **Drift → S2 High X, 35 %** — the high split point wanders aimlessly, so the same phrase never resonates quite the same way twice.
 - **LFO3 (Saw, 0.05 Hz) → LFO1 Rate, 50 %** — LFO1 accelerates over 20 seconds.
 
 ---

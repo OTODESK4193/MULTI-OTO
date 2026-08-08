@@ -25,6 +25,8 @@ MultiOtoAudioProcessorEditor::ContentComponent::ContentComponent (
     addChildComponent (modPanel);
 
     modPanel.setModMatrix (&proc.getModMatrix());
+    mainPanel.setModMatrix (&proc.getModMatrix());
+    laf.setModMatrix (&proc.getModMatrix());   // ノブへの変調レンジ描画用
 
     mainPanel.bindApvts (proc.apvts);
 
