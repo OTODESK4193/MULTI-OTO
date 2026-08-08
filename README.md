@@ -9,6 +9,8 @@
 ##
 <img src="Source/Assets/Screenshot.jpg" width="600">
 
+<img src="Source/Assets/Mod.jpg" width="600">
+
 ## Overview
 
 **MULTI-OTO** is an open-source multiband dynamics and saturation VST3 plugin that cascades up to **128 multiband compression nodes in series**.
@@ -43,9 +45,30 @@ C2-continuous polynomial soft clipper with anti-derivative antialiasing. Indepen
 
 ### Modulation Matrix *(new in 1.1.0)*
 
-Four LFOs with seven waves each (Sine / Triangle / Saw / Square / S&H / Chaos / **Rnd Trig**), free-running or tempo-synced. Two extra sources take the place of the velocity and note that an effect never receives: **Env Follow** tracks the input level, and **Drift** wanders continuously without ever stepping.
+Open it from the **MOD** button in the header.
 
-Eight slots route any source to 24 destinations — both stages' Time, crossovers, Mix and all twelve band attacks and releases, plus **the LFO rates themselves** so one LFO can stretch another's period. Frequencies and times modulate exponentially (±2 to ±3 octaves) rather than by addition, so they swing symmetrically instead of collapsing at the low end. Every modulated knob shows its live range as an arc.
+**Sources.** Four LFOs, each with seven waves — Sine / Triangle / Saw / Square / S&H / Chaos / **Rnd Trig** — running free or locked to host tempo from 1/1 down to 1/32. Two more sources replace the velocity and note that an effect never receives:
+
+| Source | Behaviour |
+|---|---|
+| **Env Follow** | Tracks the input level. Unipolar, so bands only move while something is playing |
+| **Drift** | Continuous randomness that *never steps*. Picks a new target about once a second and eases toward it over 0.4 s |
+
+The three random behaviours are deliberately distinct: **S&H** steps on every LFO cycle, **Rnd Trig** steps on only half of them (so the rhythm stalls and stutters), and **Drift** never steps at all.
+
+**Destinations.** Eight slots route any source to 24 targets — both stages' Time, crossovers and Mix, all twelve band attacks and releases, plus **the LFO rates themselves**, so one LFO can stretch another's period and break out of simple repetition. An LFO can even modulate its own rate.
+
+Frequencies and times modulate **exponentially** (±2 to ±3 octaves) rather than by addition. Adding ±500 Hz to an 88 Hz crossover would collapse the downward side; ±2 octaves swings symmetrically from 22 Hz to 352 Hz.
+
+Every modulated control shows its live range directly on the ring, with a marker at the current position. The display runs through the same function the DSP uses, so what you see is what you hear.
+
+**MOD survives preset changes.** The matrix is treated as part of your working environment rather than the patch, so switching presets never wipes the modulation you built. The MOD page has its own **RESET** button when you do want to clear it.
+
+### Musical Randomiser *(new in 1.1.0)*
+
+The **RANDOM** button in the header rerolls the main panel — but not uniformly, which would only ever produce noise. Band gains are drawn around the correct per-node value for your current cascade count (so 128 nodes never asks for +1024 dB), frequencies and times are log-uniform, depth and up/down are derived from a single intensity macro so they stay coherent, releases are always longer than attacks and shorter in the highs to keep the signature spectral sweep, and the two stages always land on different crossovers. Output gain scales down automatically with the node count.
+
+Cascade count, phase mode, limiter settings, colour theme and the MOD matrix are left alone — those are structural choices, and RANDOM fills in the character around them.
 
 ### Preset Browser & Config
 
@@ -65,7 +88,9 @@ Eight slots route any source to 24 destinations — both stages' Time, crossover
 
 **Fixed — crossover reconstruction error.** The low band was missing the high crossover's allpass, so the three bands did not sum flat. That error compounded across every stage. Corrected.
 
-**New** — modulation matrix (4 LFOs + Env Follow + Drift, 8 slots, 24 destinations, live range display on every target knob), independent per-stage crossovers with LINK, meter boundary dragging, preset browser with 30 factory presets, CONFIG panel with ten colour themes and limiter mode/ceiling/release.
+**New** — modulation matrix (4 LFOs + Env Follow + Drift, 8 slots, 24 destinations, live range display on every target control), musical RANDOM button, independent per-stage crossovers with LINK, meter boundary dragging, preset browser with 30 factory presets, CONFIG panel with ten colour themes and limiter mode/ceiling/release.
+
+**Hardened** — removed a heap allocation from the audio thread (MOD parameter IDs were being concatenated per block), cached all 108 parameter pointers at construction, added an alignment static-assert on the AVX2 SIMD path, and declared a 4 second tail so offline bounces no longer truncate the upward-compression sweep.
 
 **Redesigned GUI** — knob diameter roughly doubled (31 px → 65 px), both stages visible at once in a 3 × 5 band matrix, window reduced from 880 × 750 to 880 × 620.
 

@@ -38,6 +38,7 @@ Input
 
 | Control | Description |
 |---|---|
+| **RANDOM** | Musically rerolls the main panel |
 | **MOD** | LFO modulation matrix |
 | **CONFIG** | Colour theme and limiter settings |
 | **PRESET** | Preset browser |
@@ -218,11 +219,17 @@ Frequencies and times modulate **exponentially** rather than by addition. Adding
 
 ### Modulation range display
 
-Any knob that is a destination grows a **faint band around its outer edge** — that is the span the current assignment can sweep — with a **bright dot** riding it at the live position. On the TIME / MIX / LOW X / HIGH X bars the span appears as a tinted region with a vertical line for the current value.
+Any knob that is a destination has **part of its ring recoloured** — that segment is the span the current assignment can sweep — with a **bright line crossing the ring** at the live position. On the TIME / MIX / LOW X / HIGH X bars the span appears as a tinted region with a vertical line for the current value.
 
 The band is computed through `ModMatrix::applyModToValue()`, the same function the DSP uses, so **what you see is exactly what you hear**.
 
 Modulation is computed at block rate and the knobs themselves do not move — the base value is preserved and the offset is applied on the way into the DSP. That is the usual synth convention, and it means you can still edit the base value while modulation is running.
+
+### MOD is not cleared by presets
+
+The matrix and the colour theme are treated as your **working environment**, not part of the patch. Switching presets or pressing INIT never wipes the modulation you built.
+
+When you do want to clear it, use the **RESET** button next to CLOSE on the MOD page. Only the 8 slots and 4 LFOs return to their defaults — the main panel, presets and theme are untouched. It asks for confirmation first.
 
 ### Starting points
 
@@ -234,7 +241,30 @@ Modulation is computed at block rate and the knobs themselves do not move — th
 
 ---
 
-## 7. PRESETS
+## 7. RANDOM
+
+The **RANDOM** button in the header rerolls the main panel's knobs and sliders. There is no confirmation dialog — it is meant to be hammered until something good falls out.
+
+**It is not a uniform roll.** Randomising everything evenly would reliably produce garbage, and band gain in particular is dangerous: it compounds with the node count, so drawing +8 dB at 128 nodes would push the signal past what a float can hold. These constraints keep it usable:
+
+| Item | Rule |
+|---|---|
+| **GAIN** | Centred on the correct per-node value for the current cascade count |
+| **Frequencies & times** | Log-uniform, so low and high values are equally likely |
+| **DEPTH / UP / DN** | Derived from a single intensity macro so the bands stay coherent |
+| **ATK / REL** | Release is always longer than attack, and faster in the highs (the signature sweep) |
+| **Crossovers** | Stage 1 and Stage 2 always land apart — the core of this plugin |
+| **OUT GAIN** | Scaled down automatically with the node count to avoid a blast |
+| **PRE-DRIVE** | On 55 % of the time; when off, Drive/ODD/EVEN are zeroed too |
+| **STAGE 2** | Off 15 % of the time, so plain single-stage results also appear |
+
+**Left alone** — cascade count, phase mode, limiter settings, colour theme and the MOD matrix. Those are structural choices; RANDOM fills in the character inside the frame you set. Pick your node count first, then roll.
+
+After a roll the header preset name reads `RANDOM`. If you like it, save it from PRESET → SAVE.
+
+---
+
+## 8. PRESETS
 
 ### Browser
 
@@ -243,7 +273,7 @@ Categories on the left, presets on the right. The search field filters by name a
 - **Double-click / Enter** — load
 - **Right-click** — Load / Delete
 - **SAVE** — store every current parameter as a user preset
-- **INIT** — reset all parameters to defaults (theme is preserved)
+- **INIT** — reset all parameters to defaults (theme and MOD are preserved)
 
 Entries marked **FACTORY** are built into the plugin and cannot be deleted. User presets live at:
 
@@ -266,7 +296,7 @@ Loading a preset also switches **OTT COUNT** to its recommended value — the `(
 
 ---
 
-## 8. Recipes
+## 9. Recipes
 
 ### A. Conventional use (mix support)
 
@@ -296,7 +326,7 @@ Push LOW X and HIGH X close together (for example 400 Hz / 1.1 kHz) so the narro
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 **No sound, or silence after a loud passage**
 v1.0.0 had a bug where internal state could be corrupted after clipping and never recover. **Fixed in v1.1.0.** If it still happens, switching OTT COUNT resets all node states.
@@ -312,7 +342,7 @@ Untested. Windows and AVX2 are required.
 
 ---
 
-## 10. Requirements
+## 11. Requirements
 
 - **OS**: Windows 10 / 11 (64-bit)
 - **CPU**: AVX2 required (Intel Haswell 2013+ / AMD Excavator 2015+)
@@ -321,7 +351,7 @@ Untested. Windows and AVX2 are required.
 
 ---
 
-## 11. Disclaimer
+## 12. Disclaimer
 
 This software is provided "as is", without warranty of any kind. Cascading 128 multiband compressors can produce extreme output levels depending on your settings. CEILING is always active, but **place a limiter after MULTI-OTO** and keep an eye on your monitoring volume.
 

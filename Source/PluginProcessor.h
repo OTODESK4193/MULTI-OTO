@@ -62,6 +62,17 @@ public:
     void loadFactoryPreset(int index);
     void resetToInit();
 
+    /** MOD マトリクス (LFO とスロット) だけを既定値へ戻す */
+    void resetModMatrix();
+
+    /** メイン画面のノブ / スライダーを「音楽的に」ランダマイズする。
+        MOD・テーマ・OTT 数・PHASE・リミッター設定は触らない。 */
+    void randomiseMainParameters();
+
+    /** プリセット切替やり INIT でも保持するパラメータか?
+        (表示テーマと MOD マトリクスは「そのユーザーの環境」として持ち越す) */
+    static bool isPersistentParam(const juce::String& paramID);
+
     /** 2,4,8,...,128 の実数を total_ott のインデックスへ変換して設定する */
     void setOttCount(int count);
 

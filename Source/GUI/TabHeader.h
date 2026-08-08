@@ -17,29 +17,35 @@ public:
         presetBtn.setButtonText ("PRESET");
         configBtn.setButtonText ("CONFIG");
         modBtn.setButtonText ("MOD");
+        randomBtn.setButtonText ("RANDOM");
         presetBtn.onClick = [this] { if (onPresetClicked) onPresetClicked(); };
         configBtn.onClick = [this] { if (onConfigClicked) onConfigClicked(); };
         modBtn.onClick    = [this] { if (onModClicked)    onModClicked(); };
+        randomBtn.onClick = [this] { if (onRandomClicked) onRandomClicked(); };
         addAndMakeVisible (presetBtn);
         addAndMakeVisible (configBtn);
         addAndMakeVisible (modBtn);
+        addAndMakeVisible (randomBtn);
         applyTheme();
     }
 
     std::function<void()> onPresetClicked;
     std::function<void()> onConfigClicked;
     std::function<void()> onModClicked;
+    std::function<void()> onRandomClicked;
 
     /** カラーテーマ切替時に色を貼り直す */
     void applyTheme()
     {
-        for (auto* b : { &presetBtn, &configBtn, &modBtn })
+        for (auto* b : { &presetBtn, &configBtn, &modBtn, &randomBtn })
         {
             b->setColour (juce::TextButton::buttonColourId,   MOColors::knobTrack);
             b->setColour (juce::TextButton::buttonOnColourId, MOColors::accent);
             b->setColour (juce::TextButton::textColourOffId,  MOColors::text);
             b->setColour (juce::TextButton::textColourOnId,   MOColors::bg);
         }
+        // RANDOM だけは「押すと音が変わる」ので色で区別する
+        randomBtn.setColour (juce::TextButton::textColourOffId, MOColors::mint);
         repaint();
     }
 
@@ -72,7 +78,7 @@ public:
         {
             g.setFont (juce::Font (juce::FontOptions (12.5f, juce::Font::bold)));
             g.setColour (MOColors::babyBlue);
-            g.drawText (presetName, modBtn.getX() - 212, 0, 204, getHeight(),
+            g.drawText (presetName, randomBtn.getX() - 200, 0, 192, getHeight(),
                         juce::Justification::centredRight, true);
         }
 
@@ -90,10 +96,11 @@ public:
         presetBtn.setBounds (r.removeFromRight (94).withSizeKeepingCentre (86, 24));
         configBtn.setBounds (r.removeFromRight (90).withSizeKeepingCentre (82, 24));
         modBtn.setBounds    (r.removeFromRight (70).withSizeKeepingCentre (62, 24));
+        randomBtn.setBounds (r.removeFromRight (86).withSizeKeepingCentre (78, 24));
     }
 
 private:
-    juce::TextButton presetBtn, configBtn, modBtn;
+    juce::TextButton presetBtn, configBtn, modBtn, randomBtn;
     juce::String presetName;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TabHeader)

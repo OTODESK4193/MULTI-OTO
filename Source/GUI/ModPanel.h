@@ -86,6 +86,10 @@ public:
         btnClose.onClick = [this] { setVisible (false); };
         addAndMakeVisible (btnClose);
 
+        btnReset.setButtonText ("RESET");
+        btnReset.onClick = [this] { confirmReset(); };
+        addAndMakeVisible (btnReset);
+
         applyTheme();
         updateSyncVisibility();
         startTimerHz (30);
@@ -105,6 +109,9 @@ public:
     /** LFO のライブ値を読むためのソース。エディタから差し込む。 */
     void setModMatrix (const ModMatrix* m) { matrix = m; }
 
+    /** RESET が確定したときに呼ばれる (実際のリセットは Processor 側) */
+    std::function<void()> onResetRequested;
+
     void applyTheme()
     {
         for (auto& t : toggles)
@@ -117,8 +124,11 @@ public:
         for (auto& s : lfoRate) s.setColour (juce::Slider::rotarySliderFillColourId, MOColors::babyBlue);
         for (auto& s : slotAmt) s.setColour (juce::Slider::rotarySliderFillColourId, MOColors::accent);
 
-        btnClose.setColour (juce::TextButton::buttonColourId,  MOColors::knobTrack);
-        btnClose.setColour (juce::TextButton::textColourOffId, MOColors::text);
+        for (auto* b : { &btnClose, &btnReset }) {
+            b->setColour (juce::TextButton::buttonColourId,  MOColors::knobTrack);
+            b->setColour (juce::TextButton::textColourOffId, MOColors::text);
+        }
+        btnReset.setColour (juce::TextButton::textColourOffId, MOColors::peach);
         repaint();
     }
 
@@ -207,7 +217,12 @@ public:
         auto area = getLocalBounds().reduced (26);
 
         titleArea = area.removeFromTop (28);
-        btnClose.setBounds (titleArea.withTrimmedLeft (titleArea.getWidth() - 76).withSizeKeepingCentre (76, 26));
+        {
+            auto r = titleArea;
+            btnClose.setBounds (r.removeFromRight (76).withSizeKeepingCentre (76, 26));
+            r.removeFromRight (8);
+            btnReset.setBounds (r.removeFromRight (76).withSizeKeepingCentre (76, 26));
+        }
         area.removeFromTop (10);
 
         // ---------------- LFO ----------------
@@ -273,6 +288,26 @@ public:
     }
 
 private:
+    /** MOD 設定は消すと戻せないので必ず確認を取る */
+    void confirmReset()
+    {
+        juce::Component::SafePointer<ModPanel> safeThis (this);
+
+        juce::AlertWindow::showOkCancelBox (
+            juce::MessageBoxIconType::WarningIcon,
+            "Reset MOD Matrix",
+            "Clear all 8 slots and return the 4 LFOs to their defaults?\n\n"
+            "Only the MOD page is affected - your main panel settings, "
+            "presets and colour theme are left untouched.\n\n"
+            "This cannot be undone.",
+            "Yes", "No", this,
+            juce::ModalCallbackFunction::create ([safeThis] (int result)
+            {
+                if (result == 1 && safeThis != nullptr && safeThis->onResetRequested)
+                    safeThis->onResetRequested();
+            }));
+    }
+
     void timerCallback() override
     {
         // SYNC はプリセット読込やホストのオートメーションでも変わるため、
@@ -319,7 +354,7 @@ private:
     std::array<juce::TextButton, ModMatrix::kNumSlots> slotUni;
     std::array<juce::Slider,     ModMatrix::kNumSlots> slotAmt;
 
-    juce::TextButton btnClose;
+    juce::TextButton btnClose, btnReset;
 
     std::vector<std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>> comboAttach;
     std::vector<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>>   sliderAttach;

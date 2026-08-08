@@ -428,11 +428,26 @@ void MultiOtoAudioProcessor::applyParamValue(const juce::String& paramID, float 
     }
 }
 
+bool MultiOtoAudioProcessor::isPersistentParam(const juce::String& id) {
+    // 表示テーマと MOD マトリクスは「音色」ではなく「作業環境」。
+    // プリセットを切り替えても組んだモジュレーションが消えないようにする。
+    return id == "color_theme"
+        || id.startsWith("lfo")
+        || id.startsWith("mod");
+}
+
 void MultiOtoAudioProcessor::resetAllParamsToDefault() {
     for (auto* param : getParameters())
-        if (auto* rp = dynamic_cast<juce::RangedAudioParameter*>(param))
-            if (rp->paramID != "color_theme")   // 表示テーマはユーザーの好みなので維持
-                rp->setValueNotifyingHost(rp->getDefaultValue());
+        if (auto* p = dynamic_cast<juce::RangedAudioParameter*>(param))
+            if (!isPersistentParam(p->paramID))
+                p->setValueNotifyingHost(p->getDefaultValue());
+}
+
+void MultiOtoAudioProcessor::resetModMatrix() {
+    for (auto* param : getParameters())
+        if (auto* p = dynamic_cast<juce::RangedAudioParameter*>(param))
+            if (p->paramID.startsWith("lfo") || p->paramID.startsWith("mod"))
+                p->setValueNotifyingHost(p->getDefaultValue());
 }
 
 void MultiOtoAudioProcessor::loadFactoryPreset(int index) {
@@ -456,6 +471,105 @@ void MultiOtoAudioProcessor::setOttCount(int count) {
     for (int c = 2; c < count && idx < 6; c *= 2) ++idx;
     if (auto* p = apvts.getParameter("total_ott"))
         p->setValueNotifyingHost(p->convertTo0to1(static_cast<float>(idx)));
+}
+
+// ============================================================================
+//  RANDOM — メイン画面を「音楽的に」ランダマイズする
+//
+//  全パラメータを一様乱数で振ると、ほぼ確実に使い物にならない音になる。
+//  本機の場合とくに致命的なのが帯域ゲインで、これは段数分だけ累乗されるため、
+//  x128 で +8dB を引いてしまうと float が壊れる領域に飛ぶ。
+//  そこで
+//    ・GAIN は現在の OTT 段数から逆算した「1 段あたりの適正値」を中心に振る
+//    ・周波数と時間は対数一様 (低い側と高い側が同じ確率で出るように)
+//    ・DEPTH / UP / DN は 1 つの「強度」マクロから派生させて相関を持たせる
+//    ・REL は必ず ATK より長く、高域ほど速く (本機の象徴的なスイープが出る)
+//    ・Stage2 のクロスオーバーは Stage1 と必ずずらす (本機の肝)
+//    ・OUT GAIN は段数に応じて自動で下げ、爆音事故を防ぐ
+//  という制約を入れている。
+//
+//  OTT 数・PHASE MODE・リミッター設定・テーマ・MOD は「構造の選択」なので触らない。
+// ============================================================================
+void MultiOtoAudioProcessor::randomiseMainParameters() {
+    auto& rnd = juce::Random::getSystemRandom();
+
+    auto uni = [&rnd](float lo, float hi) { return lo + rnd.nextFloat() * (hi - lo); };
+    auto logU = [&rnd](float lo, float hi) {
+        const float a = std::log(lo), b = std::log(hi);
+        return std::exp(a + rnd.nextFloat() * (b - a));
+        };
+    auto chance = [&rnd](float p) { return rnd.nextFloat() < p; };
+    auto set = [this](const juce::String& id, float v) { applyParamValue(id, v); };
+
+    // --- 段数から 1 段あたりの適正ゲインを決める ---
+    const int ottIdx = juce::jlimit(0, 6, static_cast<int>(rd(rp.totalOtt)));
+    static const float gainByIdx[7] = { 8.0f, 5.2f, 3.1f, 2.0f, 1.3f, 0.85f, 0.52f };
+    const float gBase = gainByIdx[ottIdx];
+
+    // --- クロスオーバー。Stage2 は Stage1 から必ず離す ---
+    const float x1lo = logU(45.0f, 260.0f);
+    const float x1hi = logU(1500.0f, 7000.0f);
+    float x2lo = logU(45.0f, 500.0f);
+    float x2hi = logU(1200.0f, 9000.0f);
+    if (std::abs(std::log(x2lo / x1lo)) < 0.4f) x2lo = chance(0.5f) ? x1lo * 2.0f : x1lo * 0.5f;
+    if (std::abs(std::log(x2hi / x1hi)) < 0.4f) x2hi = chance(0.5f) ? x1hi * 2.0f : x1hi * 0.5f;
+
+    set("xover_low",     juce::jlimit(20.0f, 1000.0f, x1lo));
+    set("xover_high",    juce::jlimit(1000.0f, 20000.0f, x1hi));
+    set("s2_xover_low",  juce::jlimit(20.0f, 1000.0f, x2lo));
+    set("s2_xover_high", juce::jlimit(1000.0f, 20000.0f, x2hi));
+
+    // --- PRE-DRIVE ---
+    const bool driveOn = chance(0.55f);
+    set("predrive_on", driveOn ? 1.0f : 0.0f);
+    set("in_gain",     0.0f);
+    set("drive",       driveOn ? uni(20.0f, 90.0f) : 0.0f);
+    set("odd_blend",   driveOn ? uni(25.0f, 100.0f) : 0.0f);
+    set("even_blend",  (driveOn && chance(0.5f)) ? uni(10.0f, 70.0f) : 0.0f);
+
+    // --- 各ステージ ---
+    static const char* band[3] = { "l", "m", "h" };
+    for (int st = 1; st <= 2; ++st) {
+        const juce::String sp = "s" + juce::String(st) + "_";
+
+        // ステージ全体の「効きの強さ」。ここから各バンドを派生させる
+        const float intensity = uni(0.35f, 1.0f);
+
+        // 帯域ゲイン: LOW と HIGH をやや高く、MID を低めにするのが OTT の定石
+        const float gShape[3] = { uni(0.80f, 1.30f), uni(0.55f, 0.95f), uni(0.85f, 1.35f) };
+
+        // ATK/REL: 高域ほど速く。REL は必ず ATK より長い。
+        const float atkL = logU(8.0f, 80.0f);
+        const float atk[3] = { atkL, atkL * uni(0.35f, 0.80f), atkL * uni(0.12f, 0.55f) };
+        const float relL = logU(60.0f, 600.0f);
+        const float rel[3] = { relL, relL * uni(0.40f, 1.20f), relL * uni(0.15f, 0.70f) };
+
+        for (int b = 0; b < 3; ++b) {
+            const juce::String sfx(band[b]);
+            set(sp + "gain_"  + sfx, juce::jlimit(-24.0f, 24.0f, gBase * gShape[b]));
+            set(sp + "depth_" + sfx, juce::jlimit(0.0f, 100.0f, intensity * 100.0f * uni(0.75f, 1.15f)));
+            set(sp + "up_"    + sfx, uni(50.0f, 100.0f));
+            set(sp + "down_"  + sfx, uni(60.0f, 100.0f));
+            set(sp + "atk_"   + sfx, juce::jlimit(0.1f, 100.0f, atk[b]));
+            set(sp + "rel_"   + sfx, juce::jlimit(1.0f, 1000.0f, juce::jmax(rel[b], atk[b] * 1.5f)));
+        }
+
+        set(sp + "time", juce::jlimit(10.0f, 1000.0f, logU(15.0f, 400.0f)));
+        set(sp + "mix",  uni(50.0f, 100.0f));
+        // Stage2 だけたまに切って「1 段だけ」の素直な音も出るようにする
+        set(sp + "on", (st == 2 && chance(0.15f)) ? 0.0f : 1.0f);
+    }
+
+    // --- マスター ---
+    set("post_hpf", logU(20.0f, 60.0f));
+    set("post_lpf", logU(12000.0f, 20000.0f));
+    set("dry_wet",  uni(85.0f, 100.0f));
+
+    // 段数が多いほど下げる。カスケードの合計ゲインに追従させて爆音を防ぐ。
+    set("out_gain", juce::jlimit(-24.0f, 24.0f,
+                                 -(2.5f + static_cast<float>(ottIdx) * 1.6f) + uni(-1.0f, 1.0f)));
+
+    setCurrentPresetName("RANDOM");
 }
 
 void MultiOtoAudioProcessor::resetToInit() {
@@ -520,15 +634,18 @@ bool MultiOtoAudioProcessor::loadPresetFile(const juce::File& presetFile, juce::
         return false;
     }
 
-    // 表示テーマはプリセットに含めず、ユーザーの好みを維持する
-    float keepTheme = 0.0f;
-    if (auto* th = apvts.getRawParameterValue("color_theme"))
-        keepTheme = th->load();
+    // 表示テーマと MOD はプリセットで上書きせず、現在の設定を持ち越す。
+    // replaceState は状態を丸ごと差し替えるので、正規化値で退避しておく。
+    std::vector<std::pair<juce::RangedAudioParameter*, float>> keep;
+    for (auto* param : getParameters())
+        if (auto* p = dynamic_cast<juce::RangedAudioParameter*>(param))
+            if (isPersistentParam(p->paramID))
+                keep.emplace_back(p, p->getValue());
 
     apvts.replaceState(juce::ValueTree::fromXml(*stateXml));
 
-    if (auto* themeParam = apvts.getParameter("color_theme"))
-        themeParam->setValueNotifyingHost(themeParam->convertTo0to1(keepTheme));
+    for (const auto& kv : keep)
+        kv.first->setValueNotifyingHost(kv.second);
 
     setCurrentPresetName(presetFile.getFileNameWithoutExtension());
     return true;

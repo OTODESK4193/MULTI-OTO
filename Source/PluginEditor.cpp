@@ -44,6 +44,21 @@ MultiOtoAudioProcessorEditor::ContentComponent::ContentComponent (
         modPanel.setVisible (! modPanel.isVisible());
     };
 
+    // RANDOM は多数のパラメータを一括で書き換えるので、
+    // LINK のミラーが割り込まないようバッチで囲む。
+    header.onRandomClicked = [this] {
+        mainPanel.beginParameterBatch();
+        processor.randomiseMainParameters();
+        mainPanel.endParameterBatch();
+        refreshPresetName();
+        repaint();
+    };
+
+    modPanel.onResetRequested = [this] {
+        processor.resetModMatrix();
+        repaint();
+    };
+
     configPanel.onThemeChanged = [this] { applyThemeFromParam(); };
 
     wirePresetBrowser();
