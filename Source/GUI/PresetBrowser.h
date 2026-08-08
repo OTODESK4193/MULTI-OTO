@@ -130,11 +130,11 @@ public:
         g.drawText ("CATEGORY", area.getX(),       area.getY() - 13, 160, 12, juce::Justification::left);
         g.drawText ("PRESET",   area.getX() + 172, area.getY() - 13, 220, 12, juce::Justification::left);
 
-        // 選択中プリセットの説明
+        // 選択中プリセットの説明 (日本語を含むので CJK 対応フォントで描く)
         if (hoverDescription.isNotEmpty())
         {
             g.setColour (MOColors::textDim);
-            g.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::plain)));
+            g.setFont (MOText::bodyFont (11.5f));
             g.drawFittedText (hoverDescription, descArea, juce::Justification::topLeft, 3);
         }
     }

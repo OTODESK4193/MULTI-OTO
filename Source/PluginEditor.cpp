@@ -126,8 +126,9 @@ void MultiOtoAudioProcessorEditor::ContentComponent::wirePresetBrowser()
                 PresetRef r;
                 r.name         = p.name;
                 r.category     = p.category;
-                r.description  = juce::String (p.description)
-                               + "   [推奨 OTT: x" + juce::String (p.suggestedCount) + "]";
+                // 説明文は UTF-8。juce::String(const char*) は Latin-1 扱いなので必ず u8() を通す
+                r.description  = MOText::u8 (p.description)
+                               + MOText::u8 ("   [推奨 OTT: x") + juce::String (p.suggestedCount) + "]";
                 r.isFactory    = true;
                 r.factoryIndex = i;
                 out.add (r);

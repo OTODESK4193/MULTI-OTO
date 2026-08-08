@@ -2,6 +2,7 @@
 #include "PluginEditor.h"
 #include "DSP/EngineCore.h"
 #include "Presets/PresetData.h"
+#include "GUI/ColorPalette.h"
 
 juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::createParameterLayout() {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
@@ -86,9 +87,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::crea
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID("limit_mode", 1), "Limiter Mode",
         juce::StringArray{ "LIMIT", "CLIP" }, 0));
+    // テーマ名は ColorPalette.h のテーブルが唯一の定義元 (追加時に両方直す必要がない)
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID("color_theme", 1), "Color Theme",
-        juce::StringArray{ "Midnight", "Sakura", "Ocean", "Forest", "Sunset", "Mono" }, 0));
+        MOColors::getThemeNames(), 0));
 
     juce::StringArray phaseChoices = { "COLOR PHASE", "ALIGN PHASE" };
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("phase_mode", 1), "Phase Mode", phaseChoices, 0));

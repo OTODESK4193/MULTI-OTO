@@ -82,23 +82,24 @@ public:
         caption ("APPEARANCE", sectionA, MOColors::textDim);
         caption ("LIMITER",    sectionB, MOColors::textDim);
 
+        // 日本語は必ず MOText::u8() を通す (JUCE は const char* を Latin-1 とみなすため)
         g.setColour (MOColors::textDim);
-        g.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::plain)));
+        g.setFont (MOText::bodyFont (11.5f));
         g.drawFittedText (
-            "COLOR THEME  -  GUI の配色のみを変更します。音には影響しません。",
+            MOText::u8 ("COLOR THEME  -  GUI の配色とノブ・メーターの色を変更します。音には影響しません。"),
             descA, juce::Justification::topLeft, 2);
 
         g.drawFittedText (
-            "LIMIT : ピークを追従して滑らかに抑えます。RELEASE で戻りの速さを調整。\n"
-            "CLIP  : シーリングで即座に折り返します。倍音は増えますが密度が上がります。\n"
-            "どちらのモードでも出力が CEILING を超えることはありません。",
+            MOText::u8 ("LIMIT : ピークを追従して滑らかに抑えます。RELEASE で戻りの速さを調整します。\n"
+                        "CLIP  : シーリングで即座に折り返します。倍音は増えますが密度が上がります。\n"
+                        "どちらのモードでも、出力が CEILING を超えることはありません。"),
             descB, juce::Justification::topLeft, 4);
 
         g.setColour (MOColors::peach);
-        g.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)));
+        g.setFont (MOText::bodyFont (11.5f, true));
         g.drawFittedText (
-            "128 段のアップワード・コンプレッションは膨大なゲインを生みます。"
-            "CEILING は常に有効ですが、モニターの音量には十分注意してください。",
+            MOText::u8 ("128 段のアップワード・コンプレッションは膨大なゲインを生みます。"
+                        "CEILING は常に有効ですが、モニターの音量には十分注意してください。"),
             warnArea, juce::Justification::topLeft, 2);
     }
 

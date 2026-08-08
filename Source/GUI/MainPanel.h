@@ -80,7 +80,7 @@ public:
         // --- クロスオーバー LINK (編集補助。DSP は常に各ステージの値を使う) ---
         setupBtn (xoverLinkBtn, "xover_link", xoverLinkAt, MOColors::mint);
         xoverLinkBtn.setButtonText ("LINK");
-        xoverLinkBtn.setTooltip ("ON: Stage 1 の LOW X / HIGH X を動かすと Stage 2 も一緒に動きます");
+        xoverLinkBtn.setTooltip (MOText::u8 ("ON: Stage 1 の LOW X / HIGH X を動かすと Stage 2 も一緒に動きます"));
 
         // --- Stage 行列 ---
         buildStage (apvts, laf, 1, s1Gain, s1Up, s1Dn, s1Time, s1Mix, s1Atk, s1Rel,
@@ -192,7 +192,8 @@ public:
 
         static const char* colNames[5] = { "GAIN", "UP", "DN", "ATK", "REL" };
         static const char* rowNames[3] = { "LOW", "MID", "HI" };
-        static const juce::Colour rowCols[3] = { MOColors::bandLowUp, MOColors::bandMidUp, MOColors::bandHighUp };
+        // テーマで色が変わるので static にしないこと
+        const juce::Colour rowCols[3] = { MOColors::bandLowUp, MOColors::bandMidUp, MOColors::bandHighUp };
 
         for (int s = 0; s < 2; ++s)
         {
@@ -261,8 +262,8 @@ private:
         const juce::String st (s);
         static const char* bandSuffix[3] = { "l", "m", "h" };
         static const char* bandName[3]   = { "LOW", "MID", "HI" };
-        static const juce::Colour bandUp[3]   = { MOColors::bandLowUp, MOColors::bandMidUp, MOColors::bandHighUp };
-        static const juce::Colour bandDown[3] = { MOColors::bandLowDn, MOColors::bandMidDn, MOColors::bandHighDn };
+        const juce::Colour bandUp[3]   = { MOColors::bandLowUp, MOColors::bandMidUp, MOColors::bandHighUp };
+        const juce::Colour bandDown[3] = { MOColors::bandLowDn, MOColors::bandMidDn, MOColors::bandHighDn };
 
         for (int b = 0; b < 3; ++b)
         {
