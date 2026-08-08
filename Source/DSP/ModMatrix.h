@@ -9,7 +9,7 @@
 //            DRIFT (連続的にゆらぐランダム。階段状に飛ぶ LFO の S&H / Rnd Trig
 //                   とは性格を分けてあり、聴けば区別がつくようにしている)
 //  Slots   : 8 ( Source x Amount(-1..+1) -> Destination, Uni / Bipolar )
-//  Dests   : TIME / クロスオーバー / MIX / 各バンドの ATK・REL / LFO Rate
+//  Dests   : TIME / クロスオーバー / MIX / 各バンドの GAIN・ATK・REL / LFO Rate (30 個)
 //
 //  【重要】Dst の値はプリセットと DAW セッションに「番号」で保存される。
 //  途中に挿入すると既存プロジェクトのアサイン先が全部ズレるため、
@@ -54,6 +54,10 @@ public:
         // LFO 同士のクロスモジュレーション用
         DstLfo1Rate, DstLfo2Rate, DstLfo3Rate, DstLfo4Rate,
 
+        // 帯域ゲイン (末尾追記。上の注意書き参照)
+        DstS1GainL, DstS1GainM, DstS1GainH,
+        DstS2GainL, DstS2GainM, DstS2GainH,
+
         NumDsts
     };
 
@@ -75,7 +79,9 @@ public:
             "S1 Rel Low", "S1 Rel Mid", "S1 Rel Hi",
             "S2 Atk Low", "S2 Atk Mid", "S2 Atk Hi",
             "S2 Rel Low", "S2 Rel Mid", "S2 Rel Hi",
-            "LFO 1 Rate", "LFO 2 Rate", "LFO 3 Rate", "LFO 4 Rate"
+            "LFO 1 Rate", "LFO 2 Rate", "LFO 3 Rate", "LFO 4 Rate",
+            "S1 Gain Low", "S1 Gain Mid", "S1 Gain Hi",
+            "S2 Gain Low", "S2 Gain Mid", "S2 Gain Hi"
         };
     }
 
@@ -123,6 +129,10 @@ public:
 
     /** 入力レベル (0..1 正規化済み) を渡す。PluginProcessor が毎ブロック更新する。 */
     void setEnvFollow (float v) noexcept { envFollow = juce::jlimit (0.0f, 1.0f, v); }
+
+    /** 現在のカスケード段数。帯域ゲインの変調深さを決めるのに使う。 */
+    void setNodeCount (int n) noexcept { nodeCount.store (juce::jmax (1, n), std::memory_order_relaxed); }
+    int  getNodeCount() const noexcept { return nodeCount.load (std::memory_order_relaxed); }
 
     // ------------------------------------------------------------------
     void processBlock (int numSamples, const Params& p)
@@ -272,8 +282,16 @@ public:
     //  22Hz〜352Hz と上下対称に振れて音楽的になるため。
     //  クランプは呼び出し側 (パラメータのレンジ) で行う。
     // ==================================================================
-    static double applyModToValue (int dst, double baseValue, double mod) noexcept
+    /** 段数を明示して変調を適用する (テストしやすいよう static のまま残す) */
+    static double applyModToValue (int dst, double baseValue, double mod, int nodeCount) noexcept
     {
+        // 帯域ゲインは各ノードで適用されるので、効果は段数に比例して増幅される。
+        // 変調深さを段数で割ることで「カスケード全体で常に ±12dB」に揃える。
+        // こうしないと x128 で ±3dB を振っただけで ±384dB になり、
+        // 常に安全クランプへ張り付いて音楽的に使えなくなる。
+        if (dst >= DstS1GainL && dst <= DstS2GainH)
+            return baseValue + mod * (12.0 / static_cast<double> (juce::jmax (1, nodeCount)));
+
         switch (dst)
         {
         // TIME は倍率 (%) なので ±2 オクターブ = 1/4 倍 〜 4 倍
@@ -299,6 +317,13 @@ public:
                 return baseValue * std::pow (2.0, mod * 3.0);
             return baseValue + mod;
         }
+    }
+
+    /** 現在の段数を使う版。DSP と GUI はどちらもこちらを呼ぶこと
+        (表示と実音の倍率がずれないようにするため)。 */
+    double applyModToValue (int dst, double baseValue, double mod) const noexcept
+    {
+        return applyModToValue (dst, baseValue, mod, getNodeCount());
     }
 
 private:
@@ -330,6 +355,7 @@ private:
     double sampleRate = 44100.0;
     std::array<LfoState, kNumLfos> lfoState;
 
+    std::atomic<int> nodeCount { 2 };
     float envFollow   = 0.0f;
     float driftValue  = 0.0f;
     float driftTarget = 0.0f;

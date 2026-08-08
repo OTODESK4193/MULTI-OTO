@@ -331,11 +331,14 @@ void MultiOtoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     //  MOD 適用。パラメータのレンジ内へクランプしてから EngineCore へ渡す。
     //  (ベース値自体は書き換えないので、ノブの表示は動かない = 一般的な作法)
     // ======================================================================
+    // 帯域ゲインの変調深さは段数で割るので、先に段数を伝えておく
+    modMatrix.setNodeCount(p.total_ott_count);
+
     auto mod = [this](int dst, float base, float lo, float hi) {
         const float m = modMatrix.get(dst);
         if (std::abs(m) < 1.0e-5f) return base;
         return juce::jlimit(lo, hi,
-            static_cast<float>(ModMatrix::applyModToValue(dst, base, m)));
+            static_cast<float>(modMatrix.applyModToValue(dst, base, m)));
         };
 
     p.s1_time = mod(ModMatrix::DstS1Time, p.s1_time, 10.0f, 1000.0f);
@@ -349,10 +352,12 @@ void MultiOtoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.xHigh2 = mod(ModMatrix::DstS2XHigh, p.xHigh2, 1000.0f, 20000.0f);
 
     for (int b = 0; b < 3; ++b) {
-        p.s1_atk[b] = mod(ModMatrix::DstS1AtkL + b, p.s1_atk[b], 0.1f, 100.0f);
-        p.s1_rel[b] = mod(ModMatrix::DstS1RelL + b, p.s1_rel[b], 1.0f, 1000.0f);
-        p.s2_atk[b] = mod(ModMatrix::DstS2AtkL + b, p.s2_atk[b], 0.1f, 100.0f);
-        p.s2_rel[b] = mod(ModMatrix::DstS2RelL + b, p.s2_rel[b], 1.0f, 1000.0f);
+        p.s1_atk[b]  = mod(ModMatrix::DstS1AtkL  + b, p.s1_atk[b],  0.1f, 100.0f);
+        p.s1_rel[b]  = mod(ModMatrix::DstS1RelL  + b, p.s1_rel[b],  1.0f, 1000.0f);
+        p.s2_atk[b]  = mod(ModMatrix::DstS2AtkL  + b, p.s2_atk[b],  0.1f, 100.0f);
+        p.s2_rel[b]  = mod(ModMatrix::DstS2RelL  + b, p.s2_rel[b],  1.0f, 1000.0f);
+        p.s1_gain[b] = mod(ModMatrix::DstS1GainL + b, p.s1_gain[b], -24.0f, 24.0f);
+        p.s2_gain[b] = mod(ModMatrix::DstS2GainL + b, p.s2_gain[b], -24.0f, 24.0f);
     }
 
     engineCore->updateParameters(p);

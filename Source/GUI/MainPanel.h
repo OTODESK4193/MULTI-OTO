@@ -287,6 +287,8 @@ private:
 
         for (int b = 0; b < 3; ++b)
         {
+            reg (s1Gain[b], ModMatrix::DstS1GainL + b);
+            reg (s2Gain[b], ModMatrix::DstS2GainL + b);
             reg (s1Atk[b], ModMatrix::DstS1AtkL + b);
             reg (s1Rel[b], ModMatrix::DstS1RelL + b);
             reg (s2Atk[b], ModMatrix::DstS2AtkL + b);

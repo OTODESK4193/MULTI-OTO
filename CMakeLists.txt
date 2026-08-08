@@ -57,6 +57,7 @@ target_sources(MultiOto PRIVATE
     Source/GUI/PresetBrowser.h
     Source/GUI/ConfigPanel.h
     Source/GUI/ModPanel.h
+    Source/GUI/ModDestSelector.h
 
     # プリセット
     Source/Presets/PresetData.h

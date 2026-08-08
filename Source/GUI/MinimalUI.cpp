@@ -42,9 +42,9 @@ bool MultiOtoLookAndFeel::getModSpan(juce::Slider& s, double& loOut, double& hiO
     const double base = s.getValue();
     const double mn = s.getMinimum(), mx = s.getMaximum();
 
-    loOut  = juce::jlimit(mn, mx, ModMatrix::applyModToValue(dst, base, rLo));
-    hiOut  = juce::jlimit(mn, mx, ModMatrix::applyModToValue(dst, base, rHi));
-    curOut = juce::jlimit(mn, mx, ModMatrix::applyModToValue(dst, base, modMatrix->getForGui(dst)));
+    loOut  = juce::jlimit(mn, mx, modMatrix->applyModToValue(dst, base, rLo));
+    hiOut  = juce::jlimit(mn, mx, modMatrix->applyModToValue(dst, base, rHi));
+    curOut = juce::jlimit(mn, mx, modMatrix->applyModToValue(dst, base, modMatrix->getForGui(dst)));
     return true;
 }
 

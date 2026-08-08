@@ -12,6 +12,7 @@
 #include "ColorPalette.h"
 #include "MinimalUI.h"
 #include "DSP/ModMatrix.h"
+#include "ModDestSelector.h"
 
 class ModPanel : public juce::Component,
                  private juce::Timer
@@ -70,8 +71,12 @@ public:
             const auto sz = static_cast<size_t> (i);
 
             setupCombo  (slotSrc[sz], ModMatrix::getSourceNames(), "mod" + n + "_src");
-            setupCombo  (slotDst[sz], ModMatrix::getDestNames(),   "mod" + n + "_dst");
             setupToggle (slotUni[sz], "UNI",                       "mod" + n + "_uni", 1);
+
+            // 行き先は 30 個あるので、素の ComboBox ではなく
+            // STAGE / LFO RATE に分類したツリーメニューで選ばせる
+            addAndMakeVisible (slotDst[sz]);
+            slotDst[sz].bindTo (apvts, "mod" + n + "_dst");
 
             slotAmt[sz].setSliderStyle (juce::Slider::LinearHorizontal);
             slotAmt[sz].setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
@@ -101,7 +106,6 @@ public:
         for (auto& c : lfoWave)     c.setLookAndFeel (nullptr);
         for (auto& c : lfoSyncRate) c.setLookAndFeel (nullptr);
         for (auto& c : slotSrc)     c.setLookAndFeel (nullptr);
-        for (auto& c : slotDst)     c.setLookAndFeel (nullptr);
         for (auto& s : lfoRate)     s.setLookAndFeel (nullptr);
         for (auto& s : slotAmt)     s.setLookAndFeel (nullptr);
     }
@@ -195,7 +199,7 @@ public:
         {
             const auto sz = static_cast<size_t> (i);
             const bool active = slotSrc[sz].getSelectedItemIndex() > 0
-                             && slotDst[sz].getSelectedItemIndex() > 0
+                             && slotDst[sz].getCurrentDst() > 0
                              && std::abs (slotAmt[sz].getValue()) > 0.5;
 
             g.setColour (active ? MOColors::accent : MOColors::textDim);
@@ -350,7 +354,8 @@ private:
     std::array<juce::Slider,    ModMatrix::kNumLfos> lfoRate;
     std::array<float,           ModMatrix::kNumLfos> lfoLive { };
 
-    std::array<juce::ComboBox,   ModMatrix::kNumSlots> slotSrc, slotDst;
+    std::array<juce::ComboBox,     ModMatrix::kNumSlots> slotSrc;
+    std::array<ModDestSelector,    ModMatrix::kNumSlots> slotDst;
     std::array<juce::TextButton, ModMatrix::kNumSlots> slotUni;
     std::array<juce::Slider,     ModMatrix::kNumSlots> slotAmt;
 

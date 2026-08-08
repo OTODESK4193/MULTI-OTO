@@ -205,15 +205,20 @@ Each slot links `SOURCE → DESTINATION` by `AMOUNT` (-100 to +100 %).
 
 ### Destinations
 
+There are 30 destinations. Because that is far too many for one flat list, the DST field opens a **tree menu grouped into STAGE 1 / STAGE 2 / LFO RATE**.
+
 | Destination | Modulation depth |
 |---|---|
 | S1 / S2 **Time** | ±2 octaves (1/4x to 4x) |
 | S1 / S2 **Low X / High X** | ±2 octaves |
 | S1 / S2 **Mix** | ±50 % |
+| Per-band **Gain** (6) | Always ±12 dB across the whole cascade |
 | Per-band **Atk / Rel** (12) | ±3 octaves (1/8x to 8x) |
 | **LFO 1-4 Rate** | ±15 Hz |
 
 Frequencies and times modulate **exponentially** rather than by addition. Adding ±500 Hz to 88 Hz would collapse the downward side; ±2 octaves swings symmetrically from 22 Hz to 352 Hz.
+
+**Band gain is the special case.** Gain is applied at every node, so its effect scales with the cascade count — ±3 dB at 128 nodes would be ±384 dB, permanently pinned against the safety clamp. The modulation depth is therefore divided by the node count, so the sweep is **always ±12 dB across the whole cascade** whatever count you choose.
 
 **Modulating one LFO's rate from another** is the heart of this matrix — the period itself stretches and contracts, breaking out of simple repetition. An LFO can even modulate its own rate (it resolves safely with one block of delay).
 

@@ -56,9 +56,9 @@ Open it from the **MOD** button in the header.
 
 The three random behaviours are deliberately distinct: **S&H** steps on every LFO cycle, **Rnd Trig** steps on only half of them (so the rhythm stalls and stutters), and **Drift** never steps at all.
 
-**Destinations.** Eight slots route any source to 24 targets — both stages' Time, crossovers and Mix, all twelve band attacks and releases, plus **the LFO rates themselves**, so one LFO can stretch another's period and break out of simple repetition. An LFO can even modulate its own rate.
+**Destinations.** Eight slots route any source to 30 targets — both stages' Time, crossovers and Mix, all six band gains, all twelve band attacks and releases, plus **the LFO rates themselves**, so one LFO can stretch another's period and break out of simple repetition. An LFO can even modulate its own rate. With that many targets the picker is a categorised tree rather than one long list.
 
-Frequencies and times modulate **exponentially** (±2 to ±3 octaves) rather than by addition. Adding ±500 Hz to an 88 Hz crossover would collapse the downward side; ±2 octaves swings symmetrically from 22 Hz to 352 Hz.
+Frequencies and times modulate **exponentially** (±2 to ±3 octaves) rather than by addition. Adding ±500 Hz to an 88 Hz crossover would collapse the downward side; ±2 octaves swings symmetrically from 22 Hz to 352 Hz. Band gain is the special case: because it compounds with the node count, its modulation depth is divided by that count so the sweep is always ±12 dB across the whole cascade — otherwise ±3 dB at 128 nodes would mean ±384 dB.
 
 Every modulated control shows its live range directly on the ring, with a marker at the current position. The display runs through the same function the DSP uses, so what you see is what you hear.
 
@@ -88,7 +88,7 @@ Cascade count, phase mode, limiter settings, colour theme and the MOD matrix are
 
 **Fixed — crossover reconstruction error.** The low band was missing the high crossover's allpass, so the three bands did not sum flat. That error compounded across every stage. Corrected.
 
-**New** — modulation matrix (4 LFOs + Env Follow + Drift, 8 slots, 24 destinations, live range display on every target control), musical RANDOM button, independent per-stage crossovers with LINK, meter boundary dragging, preset browser with 30 factory presets, CONFIG panel with ten colour themes and limiter mode/ceiling/release.
+**New** — modulation matrix (4 LFOs + Env Follow + Drift, 8 slots, 30 destinations with a categorised tree picker, live range display on every target control), musical RANDOM button, independent per-stage crossovers with LINK, meter boundary dragging, preset browser with 30 factory presets, CONFIG panel with ten colour themes and limiter mode/ceiling/release.
 
 **Hardened** — removed a heap allocation from the audio thread (MOD parameter IDs were being concatenated per block), cached all 108 parameter pointers at construction, added an alignment static-assert on the AVX2 SIMD path, and declared a 4 second tail so offline bounces no longer truncate the upward-compression sweep.
 
