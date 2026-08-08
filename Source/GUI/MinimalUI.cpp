@@ -80,10 +80,24 @@ void MultiOtoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int 
         auto toAngle = [&](double v) {
             return startAngle + (float)slider.valueToProportionOfLength(v) * (endAngle - startAngle);
             };
-        const float aLo = toAngle(juce::jmin(mLo, mHi));
-        const float aHi = toAngle(juce::jmax(mLo, mHi));
+        float aLo = toAngle(juce::jmin(mLo, mHi));
+        float aHi = toAngle(juce::jmax(mLo, mHi));
 
-        if (aHi - aLo > 0.003f) {
+        // 帯域ゲインのように「段数で割った結果、1 段あたりの振れ幅が極小」に
+        // なる行き先では、比例のまま描くと 1px 未満になって何も見えない。
+        // 変調が掛かっていること自体は必ず分かるよう、最小 5px 相当を確保する。
+        const float minSpan = 5.0f / juce::jmax(8.0f, r);
+        if (aHi - aLo < minSpan) {
+            const float mid = (aLo + aHi) * 0.5f;
+            aLo = mid - minSpan * 0.5f;
+            aHi = mid + minSpan * 0.5f;
+            // 端にいるときにトラック外へはみ出さないよう押し戻す
+            if (aLo < startAngle) { aHi += startAngle - aLo; aLo = startAngle; }
+            if (aHi > endAngle)   { aLo -= aHi - endAngle;   aHi = endAngle;   }
+            aLo = juce::jmax(aLo, startAngle);
+        }
+
+        {
             juce::Path span; span.addCentredArc(cx, cy, r, r, 0.0f, aLo, aHi, true);
             g.setColour(MOColors::mint.withAlpha(0.50f));
             g.strokePath(span, juce::PathStrokeType(th,
@@ -144,13 +158,17 @@ void MultiOtoLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
         auto toX = [&](double v) {
             return b.getX() + b.getWidth() * (float)slider.valueToProportionOfLength(v);
             };
-        const float xa = toX(juce::jmin(mLo, mHi));
-        const float xb = toX(juce::jmax(mLo, mHi));
+        float xa = toX(juce::jmin(mLo, mHi));
+        float xb = toX(juce::jmax(mLo, mHi));
 
-        if (xb - xa > 1.0f) {
-            g.setColour(MOColors::mint.withAlpha(0.28f));
-            g.fillRoundedRectangle(xa, b.getY(), xb - xa, b.getHeight(), 3.0f);
+        // ノブ側と同じ理由で最小表示幅を確保する
+        if (xb - xa < 4.0f) {
+            const float mid = (xa + xb) * 0.5f;
+            xa = juce::jmax(b.getX(), mid - 2.0f);
+            xb = juce::jmin(b.getRight(), xa + 4.0f);
         }
+        g.setColour(MOColors::mint.withAlpha(0.28f));
+        g.fillRoundedRectangle(xa, b.getY(), juce::jmax(1.0f, xb - xa), b.getHeight(), 3.0f);
         const float xc = toX(mCur);
         g.setColour(MOColors::mint);
         g.fillRect(xc - 1.0f, b.getY() + 1.0f, 2.0f, b.getHeight() - 2.0f);

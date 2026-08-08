@@ -212,13 +212,15 @@ There are 30 destinations. Because that is far too many for one flat list, the D
 | S1 / S2 **Time** | ±2 octaves (1/4x to 4x) |
 | S1 / S2 **Low X / High X** | ±2 octaves |
 | S1 / S2 **Mix** | ±50 % |
-| Per-band **Gain** (6) | Always ±12 dB across the whole cascade |
+| Per-band **Gain** (6) | Always ±18 dB across the whole cascade |
 | Per-band **Atk / Rel** (12) | ±3 octaves (1/8x to 8x) |
 | **LFO 1-4 Rate** | ±15 Hz |
 
 Frequencies and times modulate **exponentially** rather than by addition. Adding ±500 Hz to 88 Hz would collapse the downward side; ±2 octaves swings symmetrically from 22 Hz to 352 Hz.
 
-**Band gain is the special case.** Gain is applied at every node, so its effect scales with the cascade count — ±3 dB at 128 nodes would be ±384 dB, permanently pinned against the safety clamp. The modulation depth is therefore divided by the node count, so the sweep is **always ±12 dB across the whole cascade** whatever count you choose.
+**Band gain is the special case.** Gain is applied at every node, so its effect scales with the cascade count — ±3 dB at 128 nodes would be ±384 dB, permanently pinned against the safety clamp. The modulation depth is therefore divided by the node count, so the sweep is **always ±18 dB across the whole cascade** whatever count you choose.
+
+The flip side is that the per-node swing at 128 nodes is only ±0.14 dB. Against a knob that spans ±24 dB, drawing that to scale would be less than one pixel wide. **Gain knobs therefore have a minimum display width of about 5 px** — you can always see that modulation is assigned, but for this destination alone the band width is not strictly proportional to the amount.
 
 **Modulating one LFO's rate from another** is the heart of this matrix — the period itself stretches and contracts, breaking out of simple repetition. An LFO can even modulate its own rate (it resolves safely with one block of delay).
 
@@ -226,7 +228,7 @@ Frequencies and times modulate **exponentially** rather than by addition. Adding
 
 Any knob that is a destination has **part of its ring recoloured** — that segment is the span the current assignment can sweep — with a **bright line crossing the ring** at the live position. On the TIME / MIX / LOW X / HIGH X bars the span appears as a tinted region with a vertical line for the current value.
 
-The band is computed through `ModMatrix::applyModToValue()`, the same function the DSP uses, so **what you see is exactly what you hear**.
+The band is computed through `ModMatrix::applyModToValue()`, the same function the DSP uses, so **what you see is what you hear** — with the single exception of band gain, where a minimum display width kicks in when the swing would be sub-pixel (see below).
 
 Modulation is computed at block rate and the knobs themselves do not move — the base value is preserved and the offset is applied on the way into the DSP. That is the usual synth convention, and it means you can still edit the base value while modulation is running.
 

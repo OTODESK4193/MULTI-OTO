@@ -153,7 +153,8 @@ private:
         // 切り捨てるとアサイン先が 1 つ手前へずれるので必ず四捨五入する。
         const int dst = juce::roundToInt (denormalisedValue);
 
-        const auto names = ModMatrix::getDestNames();
+        // オートメーションで頻繁に呼ばれ得るので毎回の StringArray 生成は避ける
+        static const auto names = ModMatrix::getDestNames();
         currentDst  = (dst >= 0 && dst < names.size()) ? dst : 0;
         currentText = names[currentDst];
         repaint();

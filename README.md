@@ -58,7 +58,7 @@ The three random behaviours are deliberately distinct: **S&H** steps on every LF
 
 **Destinations.** Eight slots route any source to 30 targets — both stages' Time, crossovers and Mix, all six band gains, all twelve band attacks and releases, plus **the LFO rates themselves**, so one LFO can stretch another's period and break out of simple repetition. An LFO can even modulate its own rate. With that many targets the picker is a categorised tree rather than one long list.
 
-Frequencies and times modulate **exponentially** (±2 to ±3 octaves) rather than by addition. Adding ±500 Hz to an 88 Hz crossover would collapse the downward side; ±2 octaves swings symmetrically from 22 Hz to 352 Hz. Band gain is the special case: because it compounds with the node count, its modulation depth is divided by that count so the sweep is always ±12 dB across the whole cascade — otherwise ±3 dB at 128 nodes would mean ±384 dB.
+Frequencies and times modulate **exponentially** (±2 to ±3 octaves) rather than by addition. Adding ±500 Hz to an 88 Hz crossover would collapse the downward side; ±2 octaves swings symmetrically from 22 Hz to 352 Hz. Band gain is the special case: because it compounds with the node count, its modulation depth is divided by that count so the sweep is always ±18 dB across the whole cascade — otherwise ±3 dB at 128 nodes would mean ±384 dB.
 
 Every modulated control shows its live range directly on the ring, with a marker at the current position. The display runs through the same function the DSP uses, so what you see is what you hear.
 

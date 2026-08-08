@@ -286,11 +286,15 @@ public:
     static double applyModToValue (int dst, double baseValue, double mod, int nodeCount) noexcept
     {
         // 帯域ゲインは各ノードで適用されるので、効果は段数に比例して増幅される。
-        // 変調深さを段数で割ることで「カスケード全体で常に ±12dB」に揃える。
+        // 変調深さを段数で割ることで「カスケード全体で常に ±18dB」に揃える。
         // こうしないと x128 で ±3dB を振っただけで ±384dB になり、
         // 常に安全クランプへ張り付いて音楽的に使えなくなる。
+        //
+        // 【注意】1 段あたりに直すと x128 では ±0.14dB しかない。ノブ上では
+        // 1px にも満たないため、描画側 (MultiOtoLookAndFeel) で最小表示幅を
+        // 確保している。音の量と表示幅が厳密には比例しないのはそのため。
         if (dst >= DstS1GainL && dst <= DstS2GainH)
-            return baseValue + mod * (12.0 / static_cast<double> (juce::jmax (1, nodeCount)));
+            return baseValue + mod * (18.0 / static_cast<double> (juce::jmax (1, nodeCount)));
 
         switch (dst)
         {
