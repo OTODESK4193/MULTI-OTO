@@ -42,6 +42,7 @@ void EngineCore::prepare(double sr, int spb) {
 
     activeCount = -1;
     cachedHalf  = -1;
+    cachedLimitRelease = -1.0f;
     cachedXLow1 = cachedXHigh1 = cachedXLow2 = cachedXHigh2 = -1.0f;
 
     reset(); isPrepared.store(true);
@@ -111,6 +112,13 @@ void EngineCore::updateParameters(const EngineParams& p) {
     for (int i = half; i < count; ++i)  nodes[i].applyCoeffs(c2);
 
     currentLimitThreshold = FastMath::fast_exp2(p.limitCeil * 0.16609f);
+
+    // リミッターのリリース時間 (CONFIG で可変)
+    if (p.limitRelease != cachedLimitRelease) {
+        const float ms = juce::jlimit(1.0f, 500.0f, p.limitRelease);
+        limiterReleaseCoef = std::exp(-1.0f / (ms * 0.001f * static_cast<float>(currentSampleRate)));
+        cachedLimitRelease = p.limitRelease;
+    }
 }
 
 void EngineCore::process(juce::AudioBuffer<float>& buffer) {
@@ -216,13 +224,21 @@ void EngineCore::processChunk(float* left, float* right, int numSamples) {
         oL = juce::jlimit(-kCeiling, kCeiling, oL);
         oR = juce::jlimit(-kCeiling, kCeiling, oR);
 
-        limiterEnvL = std::max(std::abs(oL), limiterEnvL * limiterReleaseCoef);
-        limiterEnvR = std::max(std::abs(oR), limiterEnvR * limiterReleaseCoef);
-        if (!std::isfinite(limiterEnvL)) limiterEnvL = 0.0f;
-        if (!std::isfinite(limiterEnvR)) limiterEnvR = 0.0f;
+        if (currentParams.limitMode == 1) {
+            // CLIP: 天井で即座に折り返す。倍音は増えるが出力は絶対にシーリングを超えない。
+            left[i]  = juce::jlimit(-currentLimitThreshold, currentLimitThreshold, oL);
+            right[i] = juce::jlimit(-currentLimitThreshold, currentLimitThreshold, oR);
+        }
+        else {
+            // LIMIT: ピークエンベロープ追従のゼロレイテンシー・リミッター
+            limiterEnvL = std::max(std::abs(oL), limiterEnvL * limiterReleaseCoef);
+            limiterEnvR = std::max(std::abs(oR), limiterEnvR * limiterReleaseCoef);
+            if (!std::isfinite(limiterEnvL)) limiterEnvL = 0.0f;
+            if (!std::isfinite(limiterEnvR)) limiterEnvR = 0.0f;
 
-        left[i]  = oL * ((limiterEnvL > currentLimitThreshold) ? (currentLimitThreshold / limiterEnvL) : 1.0f);
-        right[i] = oR * ((limiterEnvR > currentLimitThreshold) ? (currentLimitThreshold / limiterEnvR) : 1.0f);
+            left[i]  = oL * ((limiterEnvL > currentLimitThreshold) ? (currentLimitThreshold / limiterEnvL) : 1.0f);
+            right[i] = oR * ((limiterEnvR > currentLimitThreshold) ? (currentLimitThreshold / limiterEnvR) : 1.0f);
+        }
     }
 }
 

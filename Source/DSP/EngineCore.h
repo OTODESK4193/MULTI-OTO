@@ -20,8 +20,8 @@ struct EngineParams {
     float xLow2, xHigh2;   // Stage 2 のクロスオーバー
     float s1_gain[3], s1_depth[3], s1_up[3], s1_down[3], s1_time, s1_mix, s1_atk[3], s1_rel[3];
     float s2_gain[3], s2_depth[3], s2_up[3], s2_down[3], s2_time, s2_mix, s2_atk[3], s2_rel[3];
-    float post_hpf, post_lpf, dryWet, outGain, limitCeil;
-    int total_ott_count, phase_mode;
+    float post_hpf, post_lpf, dryWet, outGain, limitCeil, limitRelease;
+    int total_ott_count, phase_mode, limitMode;   // limitMode: 0 = LIMIT, 1 = CLIP
     bool predrive_on, s1_on, s2_on;
 };
 
@@ -63,6 +63,7 @@ private:
     int  maxBlockSize = 512;
     int  activeCount  = -1;
     int  cachedHalf   = -1;
+    float cachedLimitRelease = -1.0f;
     float cachedXLow1 = -1.0f, cachedXHigh1 = -1.0f;
     float cachedXLow2 = -1.0f, cachedXHigh2 = -1.0f;
     std::atomic<bool> isPrepared{ false };

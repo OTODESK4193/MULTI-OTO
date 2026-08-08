@@ -77,6 +77,11 @@ public:
         s1OnBtn.setButtonText ("ON");
         s2OnBtn.setButtonText ("ON");
 
+        // --- クロスオーバー LINK (編集補助。DSP は常に各ステージの値を使う) ---
+        setupBtn (xoverLinkBtn, "xover_link", xoverLinkAt, MOColors::mint);
+        xoverLinkBtn.setButtonText ("LINK");
+        xoverLinkBtn.setTooltip ("ON: Stage 1 の LOW X / HIGH X を動かすと Stage 2 も一緒に動きます");
+
         // --- Stage 行列 ---
         buildStage (apvts, laf, 1, s1Gain, s1Up, s1Dn, s1Time, s1Mix, s1Atk, s1Rel,
                     s1XLow, s1XHigh, MOColors::peach);
@@ -91,6 +96,71 @@ public:
             l.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
             addAndMakeVisible (l);
         }
+
+        // LINK: Stage1 の XO を動かしたら Stage2 へ写す。
+        // プリセット読込中は beginParameterBatch() で抑止されるので上書きされない。
+        s1XLow.slider.onValueChange  = [this] { mirrorXoverIfLinked(); };
+        s1XHigh.slider.onValueChange = [this] { mirrorXoverIfLinked(); };
+        xoverLinkBtn.onClick         = [this] { mirrorXoverIfLinked(); };
+    }
+
+    /** プリセット読込など「ユーザー操作ではない」一括変更の前後で呼ぶ */
+    void beginParameterBatch() { ++mirrorSuppress; }
+    void endParameterBatch()
+    {
+        // Attachment 経由のスライダー更新が非同期で届くので、解除も後回しにする
+        juce::Component::SafePointer<MainPanel> safeThis (this);
+        juce::MessageManager::callAsync ([safeThis] {
+            if (safeThis != nullptr) safeThis->releaseParameterBatch();
+        });
+    }
+    void releaseParameterBatch() { mirrorSuppress = juce::jmax (0, mirrorSuppress - 1); }
+
+    /** カラーテーマ切替時に全コントロールの色を貼り直す */
+    void applyTheme()
+    {
+        const auto cDrive  = MOColors::accent;
+        const auto cMaster = MOColors::lavender;
+
+        inGain.setAccent (cDrive);  drive.setAccent (cDrive);
+        oddBlend.setAccent (cDrive); evenBlend.setAccent (cDrive);
+        postHPF.setAccent (cMaster); postLPF.setAccent (cMaster);
+        dryWet.setAccent (cMaster);  outGain.setAccent (cMaster);
+        limitCeil.setAccent (cMaster);
+
+        const juce::Colour bandUp[3]   = { MOColors::bandLowUp, MOColors::bandMidUp, MOColors::bandHighUp };
+        const juce::Colour bandDown[3] = { MOColors::bandLowDn, MOColors::bandMidDn, MOColors::bandHighDn };
+
+        for (int b = 0; b < 3; ++b)
+        {
+            for (ArcKnob* k : { &s1Gain[b], &s1Up[b], &s1Atk[b], &s1Rel[b],
+                                &s2Gain[b], &s2Up[b], &s2Atk[b], &s2Rel[b] })
+                k->setAccent (bandUp[b]);
+
+            s1Dn[b].setAccent (bandDown[b]);
+            s2Dn[b].setAccent (bandDown[b]);
+        }
+
+        s1Time.setAccent (MOColors::peach);    s1Mix.setAccent (MOColors::peach);
+        s2Time.setAccent (MOColors::babyBlue); s2Mix.setAccent (MOColors::babyBlue);
+        s1XLow.setAccent (MOColors::babyBlue); s1XHigh.setAccent (MOColors::babyBlue);
+        s2XLow.setAccent (MOColors::babyBlue); s2XHigh.setAccent (MOColors::babyBlue);
+
+        auto reColour = [] (juce::TextButton& b, juce::Colour on) {
+            b.setColour (juce::TextButton::buttonColourId,   MOColors::knobTrack);
+            b.setColour (juce::TextButton::buttonOnColourId, on);
+            b.setColour (juce::TextButton::textColourOffId,  MOColors::textDim);
+            b.setColour (juce::TextButton::textColourOnId,   MOColors::bg);
+        };
+        reColour (preDriveBtn,  MOColors::accent);
+        reColour (s1OnBtn,      MOColors::peach);
+        reColour (s2OnBtn,      MOColors::babyBlue);
+        reColour (xoverLinkBtn, MOColors::mint);
+
+        stageLabel[0].setColour (juce::Label::textColourId, MOColors::peach);
+        stageLabel[1].setColour (juce::Label::textColourId, MOColors::babyBlue);
+
+        repaint();
     }
 
     ~MainPanel() override
@@ -224,6 +294,11 @@ private:
         auto titleRow = inner.removeFromTop (20);
         stageLabel[idx].setBounds (titleRow.removeFromLeft (70));
         (idx == 0 ? s1OnBtn : s2OnBtn).setBounds (titleRow.removeFromRight (46).withSizeKeepingCentre (44, 18));
+        if (idx == 1)
+        {
+            titleRow.removeFromRight (6);
+            xoverLinkBtn.setBounds (titleRow.removeFromRight (52).withSizeKeepingCentre (50, 18));
+        }
 
         inner.removeFromTop (3);
         auto macro1 = inner.removeFromTop (17);
@@ -266,6 +341,16 @@ private:
     }
 
     // ------------------------------------------------------------------
+    void mirrorXoverIfLinked()
+    {
+        if (mirrorSuppress > 0) return;
+        if (! xoverLinkBtn.getToggleState()) return;
+
+        s2XLow.slider.setValue  (s1XLow.slider.getValue(),  juce::sendNotificationSync);
+        s2XHigh.slider.setValue (s1XHigh.slider.getValue(), juce::sendNotificationSync);
+    }
+
+    // ------------------------------------------------------------------
     struct StageGeom {
         juce::Rectangle<int> block;
         juce::Rectangle<int> colHeader[5];
@@ -285,8 +370,10 @@ private:
 
     DynVisualComponent dynS1, dynS2;
 
-    juce::TextButton s1OnBtn, s2OnBtn;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> s1OnAt, s2OnAt;
+    juce::TextButton s1OnBtn, s2OnBtn, xoverLinkBtn;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> s1OnAt, s2OnAt, xoverLinkAt;
+
+    int mirrorSuppress = 0;
 
     ArcKnob s1Gain[3], s1Up[3], s1Dn[3], s1Time, s1Mix, s1Atk[3], s1Rel[3], s1XLow, s1XHigh;
     ArcKnob s2Gain[3], s2Up[3], s2Dn[3], s2Time, s2Mix, s2Atk[3], s2Rel[3], s2XLow, s2XHigh;

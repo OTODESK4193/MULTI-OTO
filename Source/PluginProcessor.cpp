@@ -34,9 +34,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::crea
     // Stage 1 のクロスオーバー (旧バージョンとの互換のため ID は据え置き)
     addFreq("xover_low", "S1 Low Freq", 20.0f, 1000.0f, 88.0f);
     addFreq("xover_high", "S1 High Freq", 1000.0f, 20000.0f, 2500.0f);
-    // Stage 2 のクロスオーバー (Stage 1 とは完全に独立)
+    // Stage 2 のクロスオーバー (既定では Stage 1 と完全に独立)
     addFreq("s2_xover_low", "S2 Low Freq", 20.0f, 1000.0f, 88.0f);
     addFreq("s2_xover_high", "S2 High Freq", 1000.0f, 20000.0f, 2500.0f);
+    // 編集補助。ON のとき Stage1 の LOW X / HIGH X を動かすと Stage2 も一緒に動く。
+    // DSP は常に各ステージのパラメータをそのまま使う (音への直接の影響はない)。
+    addBool("xover_link", "Crossover Link", false);
 
     auto buildStageParams = [&](int s) {
         juce::String st = juce::String(s);
@@ -77,6 +80,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::crea
     addFloat("dry_wet", "Dry / Wet", 0.0f, 100.0f, 100.0f);
     addFloat("out_gain", "Output Gain", -24.0f, 24.0f, 0.0f);
     addFloat("limit_ceil", "Limiter Ceiling", -2.0f, -0.1f, -0.1f);
+
+    // --- CONFIG (リミッター詳細 / 表示テーマ) ---
+    addFloat("limit_release", "Limiter Release", 1.0f, 500.0f, 50.0f);
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID("limit_mode", 1), "Limiter Mode",
+        juce::StringArray{ "LIMIT", "CLIP" }, 0));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID("color_theme", 1), "Color Theme",
+        juce::StringArray{ "Midnight", "Sakura", "Ocean", "Forest", "Sunset", "Mono" }, 0));
 
     juce::StringArray phaseChoices = { "COLOR PHASE", "ALIGN PHASE" };
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("phase_mode", 1), "Phase Mode", phaseChoices, 0));
@@ -184,6 +196,8 @@ void MultiOtoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.dryWet = apvts.getRawParameterValue("dry_wet")->load(std::memory_order_relaxed);
     p.outGain = apvts.getRawParameterValue("out_gain")->load(std::memory_order_relaxed);
     p.limitCeil = apvts.getRawParameterValue("limit_ceil")->load(std::memory_order_relaxed);
+    p.limitRelease = apvts.getRawParameterValue("limit_release")->load(std::memory_order_relaxed);
+    p.limitMode = static_cast<int>(apvts.getRawParameterValue("limit_mode")->load(std::memory_order_relaxed));
     p.phase_mode = static_cast<int>(apvts.getRawParameterValue("phase_mode")->load(std::memory_order_relaxed));
 
     engineCore->updateParameters(p);
@@ -262,7 +276,7 @@ void MultiOtoAudioProcessor::applyParamValue(const juce::String& paramID, float 
 void MultiOtoAudioProcessor::resetAllParamsToDefault() {
     for (auto* param : getParameters())
         if (auto* rp = dynamic_cast<juce::RangedAudioParameter*>(param))
-            if (rp->paramID != "total_ott")   // OTT 数はユーザーの選択を尊重して維持
+            if (rp->paramID != "color_theme")   // 表示テーマはユーザーの好みなので維持
                 rp->setValueNotifyingHost(rp->getDefaultValue());
 }
 
@@ -276,7 +290,17 @@ void MultiOtoAudioProcessor::loadFactoryPreset(int index) {
     for (const auto& kv : PresetData::toParameterValues(preset))
         applyParamValue(kv.first, kv.second);
 
+    // 推奨 OTT 数を反映する (2,4,8,...,128 → index 0..6)
+    setOttCount(preset.suggestedCount);
+
     setCurrentPresetName(preset.name);
+}
+
+void MultiOtoAudioProcessor::setOttCount(int count) {
+    int idx = 0;
+    for (int c = 2; c < count && idx < 6; c *= 2) ++idx;
+    if (auto* p = apvts.getParameter("total_ott"))
+        p->setValueNotifyingHost(p->convertTo0to1(static_cast<float>(idx)));
 }
 
 void MultiOtoAudioProcessor::resetToInit() {
@@ -341,15 +365,15 @@ bool MultiOtoAudioProcessor::loadPresetFile(const juce::File& presetFile, juce::
         return false;
     }
 
-    // OTT 数はプリセットに含めない仕様なので、読み込み前後で現在値を維持する
-    float keepOtt = 0.0f;
-    if (auto* ott = apvts.getRawParameterValue("total_ott"))
-        keepOtt = ott->load();
+    // 表示テーマはプリセットに含めず、ユーザーの好みを維持する
+    float keepTheme = 0.0f;
+    if (auto* th = apvts.getRawParameterValue("color_theme"))
+        keepTheme = th->load();
 
     apvts.replaceState(juce::ValueTree::fromXml(*stateXml));
 
-    if (auto* ottParam = apvts.getParameter("total_ott"))
-        ottParam->setValueNotifyingHost(ottParam->convertTo0to1(keepOtt));
+    if (auto* themeParam = apvts.getParameter("color_theme"))
+        themeParam->setValueNotifyingHost(themeParam->convertTo0to1(keepTheme));
 
     setCurrentPresetName(presetFile.getFileNameWithoutExtension());
     return true;

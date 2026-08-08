@@ -4,21 +4,6 @@
 #include "ColorPalette.h"
 
 // ============================================================================
-//  MultiOtoColors — 後方互換用エイリアス (新規コードは MOColors を使用)
-// ============================================================================
-namespace MultiOtoColors {
-    inline const juce::Colour Background     = MOColors::bg;
-    inline const juce::Colour Surface        = MOColors::panel;
-    inline const juce::Colour Panel          = MOColors::panel;
-    inline const juce::Colour Border         = MOColors::panelLine.withAlpha (0.13f);
-    inline const juce::Colour Accent         = MOColors::accent;
-    inline const juce::Colour AccentBlue     = MOColors::babyBlue;
-    inline const juce::Colour TextPrimary    = MOColors::text;
-    inline const juce::Colour TextSecondary  = MOColors::textDim;
-    inline const juce::Colour ArcTrack       = MOColors::knobTrack;
-}
-
-// ============================================================================
 //  MultiOtoLookAndFeel
 //  ノブは TextBox を持たず、数値を中心キャップに直接描画します。
 //  これにより同じセル面積でノブ直径を約 2 倍にできます。
@@ -47,6 +32,9 @@ public:
     /** スライダー値を短い文字列にする (ノブ中心表示用) */
     static juce::String formatValue(double v);
 
+    /** カラーテーマ切替後に LookAndFeel 側の色を貼り直す */
+    void refreshColours();
+
 private:
     juce::Font groupFont;
 };
@@ -72,4 +60,7 @@ struct ArcKnob {
 
     void setBounds(juce::Rectangle<int> rect);
     void setVisible(bool v);
+
+    /** テーマ切替時にアクセント色を貼り直す */
+    void setAccent(juce::Colour c);
 };

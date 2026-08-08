@@ -55,6 +55,7 @@ target_sources(MultiOto PRIVATE
     Source/GUI/DynVisual.cpp
     Source/GUI/MainPanel.h
     Source/GUI/PresetBrowser.h
+    Source/GUI/ConfigPanel.h
 
     # プリセット
     Source/Presets/PresetData.h

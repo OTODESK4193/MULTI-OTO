@@ -282,7 +282,7 @@ private:
     {
         auto* win = new juce::AlertWindow ("Save Preset",
                                            "Choose a category and enter a preset name.\n"
-                                           "OTT COUNT is not stored - it always follows your current setting.",
+                                           "All parameters including OTT COUNT are stored.",
                                            juce::MessageBoxIconType::NoIcon, this);
 
         juce::StringArray cats;
@@ -337,7 +337,7 @@ private:
             juce::MessageBoxIconType::WarningIcon,
             "Reset to Initial State",
             "This resets every parameter to its default value.\n"
-            "OTT COUNT is left as it is.\n\n"
+            "Your colour theme is left as it is.\n\n"
             "This cannot be undone. Do you want to continue?",
             "Yes", "No", this,
             juce::ModalCallbackFunction::create ([safeThis] (int result)

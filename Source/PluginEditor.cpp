@@ -9,20 +9,34 @@
 MultiOtoAudioProcessorEditor::ContentComponent::ContentComponent (
     MultiOtoAudioProcessor& proc, MultiOtoLookAndFeel& laf)
     : processor (proc),
-      mainPanel (proc.apvts, laf)
+      lookAndFeelRef (laf),
+      mainPanel (proc.apvts, laf),
+      configPanel (proc.apvts, laf)
 {
     addAndMakeVisible (header);
     addAndMakeVisible (mainPanel);
 
     presetBrowser.setVisible (false);
+    configPanel.setVisible (false);
     addChildComponent (presetBrowser);
+    addChildComponent (configPanel);
 
     mainPanel.bindApvts (proc.apvts);
 
-    header.onPresetClicked = [this] { presetBrowser.setVisible (! presetBrowser.isVisible()); };
+    header.onPresetClicked = [this] {
+        configPanel.setVisible (false);
+        presetBrowser.setVisible (! presetBrowser.isVisible());
+    };
+    header.onConfigClicked = [this] {
+        presetBrowser.setVisible (false);
+        configPanel.setVisible (! configPanel.isVisible());
+    };
+
+    configPanel.onThemeChanged = [this] { applyThemeFromParam(); };
 
     wirePresetBrowser();
     refreshPresetName();
+    applyThemeFromParam();
 
     // プリセット名が変わったらヘッダー表示を更新する
     juce::Component::SafePointer<ContentComponent> safeThis (this);
@@ -40,6 +54,50 @@ MultiOtoAudioProcessorEditor::ContentComponent::~ContentComponent()
 void MultiOtoAudioProcessorEditor::ContentComponent::refreshPresetName()
 {
     header.setPresetName (processor.getCurrentPresetName());
+}
+
+void MultiOtoAudioProcessorEditor::ContentComponent::applyThemeFromParam()
+{
+    int idx = 0;
+    if (auto* p = processor.apvts.getRawParameterValue ("color_theme"))
+        idx = static_cast<int> (p->load());
+
+    MOColors::setTheme (idx);
+
+    // LookAndFeel と、色を保持しているコントロールをすべて貼り直す
+    lookAndFeelRef.refreshColours();
+    header.applyTheme();
+    mainPanel.applyTheme();
+    configPanel.applyTheme();
+
+    repaint();
+}
+
+/** プリセット読込は「ユーザー操作ではない一括変更」なので LINK ミラーを抑止する */
+void MultiOtoAudioProcessorEditor::ContentComponent::loadPresetWithBatch (const PresetRef& ref)
+{
+    mainPanel.beginParameterBatch();
+
+    if (ref.isFactory)
+    {
+        processor.loadFactoryPreset (ref.factoryIndex);
+    }
+    else
+    {
+        juce::String error;
+        if (! processor.loadPresetFile (ref.file, error))
+        {
+            mainPanel.endParameterBatch();
+            presetBrowser.showMessage ("Load Failed", error);
+            return;
+        }
+    }
+
+    mainPanel.endParameterBatch();
+    refreshPresetName();
+    applyThemeFromParam();   // プリセットにテーマが含まれる場合に追従
+    presetBrowser.setVisible (false);
+    repaint();
 }
 
 void MultiOtoAudioProcessorEditor::ContentComponent::wirePresetBrowser()
@@ -111,26 +169,7 @@ void MultiOtoAudioProcessorEditor::ContentComponent::wirePresetBrowser()
         return out;
     };
 
-    presetBrowser.onPresetChosen = [this] (PresetRef ref)
-    {
-        if (ref.isFactory)
-        {
-            processor.loadFactoryPreset (ref.factoryIndex);
-        }
-        else
-        {
-            juce::String error;
-            if (! processor.loadPresetFile (ref.file, error))
-            {
-                presetBrowser.showMessage ("Load Failed", error);
-                return;
-            }
-        }
-
-        refreshPresetName();
-        presetBrowser.setVisible (false);
-        repaint();
-    };
+    presetBrowser.onPresetChosen = [this] (PresetRef ref) { loadPresetWithBatch (ref); };
 
     presetBrowser.onSaveRequested = [this] (juce::String category, juce::String name)
     {
@@ -158,8 +197,12 @@ void MultiOtoAudioProcessorEditor::ContentComponent::wirePresetBrowser()
 
     presetBrowser.onInitConfirmed = [this]
     {
+        mainPanel.beginParameterBatch();
         processor.resetToInit();
+        mainPanel.endParameterBatch();
+
         refreshPresetName();
+        applyThemeFromParam();
         presetBrowser.setVisible (false);
         repaint();
     };
@@ -180,8 +223,9 @@ void MultiOtoAudioProcessorEditor::ContentComponent::resized()
     header.setBounds (area.removeFromTop (32));
     mainPanel.setBounds (area.reduced (4, 2));
 
-    // ブラウザはヘッダーを除いた全面をオーバーレイする
+    // オーバーレイはヘッダーを除いた全面
     presetBrowser.setBounds (getLocalBounds().withTrimmedTop (32));
+    configPanel.setBounds   (getLocalBounds().withTrimmedTop (32));
 }
 
 void MultiOtoAudioProcessorEditor::ContentComponent::connectMeters()

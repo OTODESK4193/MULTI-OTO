@@ -15,15 +15,29 @@ public:
     TabHeader()
     {
         presetBtn.setButtonText ("PRESET");
-        presetBtn.setColour (juce::TextButton::buttonColourId,   MOColors::knobTrack);
-        presetBtn.setColour (juce::TextButton::buttonOnColourId, MOColors::accent);
-        presetBtn.setColour (juce::TextButton::textColourOffId,  MOColors::text);
-        presetBtn.setColour (juce::TextButton::textColourOnId,   MOColors::bg);
+        configBtn.setButtonText ("CONFIG");
         presetBtn.onClick = [this] { if (onPresetClicked) onPresetClicked(); };
+        configBtn.onClick = [this] { if (onConfigClicked) onConfigClicked(); };
         addAndMakeVisible (presetBtn);
+        addAndMakeVisible (configBtn);
+        applyTheme();
     }
 
     std::function<void()> onPresetClicked;
+    std::function<void()> onConfigClicked;
+
+    /** カラーテーマ切替時に色を貼り直す */
+    void applyTheme()
+    {
+        for (auto* b : { &presetBtn, &configBtn })
+        {
+            b->setColour (juce::TextButton::buttonColourId,   MOColors::knobTrack);
+            b->setColour (juce::TextButton::buttonOnColourId, MOColors::accent);
+            b->setColour (juce::TextButton::textColourOffId,  MOColors::text);
+            b->setColour (juce::TextButton::textColourOnId,   MOColors::bg);
+        }
+        repaint();
+    }
 
     /** 現在のプリセット名をヘッダーに表示する */
     void setPresetName (const juce::String& n) { presetName = n; repaint(); }
@@ -54,7 +68,7 @@ public:
         {
             g.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)));
             g.setColour (MOColors::babyBlue);
-            g.drawText (presetName, presetBtn.getX() - 210, 0, 202, getHeight(),
+            g.drawText (presetName, configBtn.getX() - 212, 0, 204, getHeight(),
                         juce::Justification::centredRight, true);
         }
 
@@ -68,11 +82,13 @@ public:
 
     void resized() override
     {
-        presetBtn.setBounds (getLocalBounds().removeFromRight (86).withSizeKeepingCentre (78, 22));
+        auto r = getLocalBounds();
+        presetBtn.setBounds (r.removeFromRight (86).withSizeKeepingCentre (78, 22));
+        configBtn.setBounds (r.removeFromRight (82).withSizeKeepingCentre (74, 22));
     }
 
 private:
-    juce::TextButton presetBtn;
+    juce::TextButton presetBtn, configBtn;
     juce::String presetName;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TabHeader)

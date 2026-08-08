@@ -1,6 +1,6 @@
 # MULTI-OTO
 
-![Release](https://img.shields.io/badge/release-v1.0-blue)
+![Release](https://img.shields.io/badge/release-v1.1.0-blue)
 ![License](https://img.shields.io/badge/license-AGPLv3-green)
 ![JUCE](https://img.shields.io/badge/JUCE-8.0.8-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20-lightgrey)
@@ -11,87 +11,100 @@
 
 ## Overview
 
-**MULTI-OTO** is an open-source, extreme multiband dynamics and saturation VST3 plugin. Pushing the concept of upward/downward compression to the absolute limits of digital signal processing, it allows users to cascade up to **128 multiband compression nodes** in series.
+**MULTI-OTO** is an open-source multiband dynamics and saturation VST3 plugin that cascades up to **128 multiband compression nodes in series**.
 
-Engineered specifically for modern electronic music genres like Color Bass, Riddim, and Neurofunk, MULTI-OTO excels at extracting microscopic textures, generating infinite spectral sweeps, and creating extreme phase-dispersion glitch effects that standard dynamics processors cannot achieve.
+It is not a mixing or mastering utility — it is a **sound design tool**. Up to about 8 nodes it behaves like a conventional OTT, adding weight and brightness. Past 16 nodes it turns into an artifact generator, and the design deliberately allows the sound to break.
 
-👉 **[Watch the Demo Video on X (動作デモ動画はこちら！)](https://x.com/kijyoumusic/status/2055442936884826283?s=20)**
+Built for Color Bass, Riddim and Neurofunk: extracting microscopic texture, generating infinite spectral sweeps, and producing phase-dispersion glitch effects that ordinary dynamics processors cannot reach.
 
+👉 **[Demo video on X (動作デモ動画)](https://x.com/kijyoumusic/status/2055442936884826283?s=20)**
 
 ## Key Features
 
-### 🎛️ Extreme Cascade Architecture
+### Extreme Cascade Architecture
 
-Selectable total OTT count (2, 4, 8, 16, 32, 64, or 128 cascades). By running the signal through up to 128 sequential multiband crossovers and compressors, MULTI-OTO forces microscopic audio details to the forefront, turning simple sine waves into complex, evolving sonic landscapes.
+Selectable cascade count (2, 4, 8, 16, 32, 64, 128). Stage 1 owns the first half of the chain, Stage 2 the second half, each with its own settings.
 
-### 🔬 True "OTT" Dynamics Engine
+### Independent Per-Stage Crossovers *(new in 1.1.0)*
 
-Authentic upward and downward compression algorithms tailored for extreme sound design:
+Stage 1 and Stage 2 have **completely separate band splits**. Setting different crossovers per stage drops one stage's boundary inside the other's band, producing phase interference and resonance from the overlap. Band boundaries can also be dragged directly on the meters.
 
-* **RMS-Based Envelope Followers:** Utilizes mathematically smooth RMS detection to prevent low-frequency amplitude modulation (ripple distortion) even at 128x amplification.
-* **Upward Range Limitation:** Caps upward expansion at a safe +36dB to prevent infinite runaway, allowing the iconic "schwaaa" tail to breathe naturally without hitting a digital wall.
-* **Micro-Dither Injection:** A completely inaudible -144dB stereo dither prevents denormalization while feeding the extreme upward compressors, ensuring that tails evolve indefinitely.
+### True OTT Dynamics Engine
 
-### 🌌 Phase Dispersion & Glitch Textures
+Simultaneous upward and downward compression per band, with RMS envelope detection and upward expansion capped at +36 dB so the signature tail can breathe without hitting a wall.
 
-* **Color Phase (Uncompensated Crossovers):** By passing the signal through up to 128 uncompensated Linkwitz-Riley crossover filters, the plugin deliberately accumulates massive phase rotation (group delay). This extreme phase smearing stretches transients and generates the "laser" or "droopy" glitch artifacts highly sought after in modern bass music.
+### Phase Dispersion & Glitch Textures
 
-### 🔥 Pre-Drive ADAA Saturation
+**COLOR PHASE** passes the signal through up to 128 uncompensated Linkwitz-Riley crossovers, accumulating massive group delay that stretches transients into laser sweeps. **ALIGN PHASE** routes the dry signal through the same phase rotation so Dry/Wet stays a clean blend.
 
-* **Anti-Derivative Antialiasing (ADAA):** Feed the compressor network with mathematically pure harmonics. Includes independent controls for Drive, Odd harmonics (sharp/square), and Even harmonics (warm/asymmetrical) to shape the initial transient before it gets pulverized by the dynamics engine.
+### Pre-Drive ADAA Saturation
 
-### ⚡ Advanced DSP Engine & Architecture
+C2-continuous polynomial soft clipper with anti-derivative antialiasing. Independent Drive, Odd and Even harmonic controls.
 
-* **Extreme AVX2 SIMD Optimization:** To make 128 cascaded 3-band compressors CPU-viable, the core `DynamicsNode` and `ADAASaturator` are written entirely in raw AVX2 intrinsics (`_mm256`), processing 8 audio samples simultaneously.
-* **Fast Math Approximations:** Uses highly optimized, vectorized `fast_exp2` and `fast_log2` functions to calculate decibel conversions and gain stages with zero CPU bottleneck.
-* **100% Real-Time Safe:** Absolute zero heap-allocation (`new`/`malloc`) during playback.
+### Preset Browser & Config
 
-## System Requirements & Compatibility
+30 factory presets across Basic / Bass / Texture / Destroy / Drive / Utility, plus user preset saving. Six colour themes and configurable limiter mode (LIMIT / CLIP), ceiling and release.
 
-* **OS:** Windows 10 / Windows 11 (64-bit) **[Windows Only]**
-* **Format:** VST3
-* **Tested Host:** Ableton Live 11 / 12
+### AVX2 SIMD Engine
 
-⚠️ **Compatibility Notice:** This plugin is compiled and heavily optimized exclusively for Windows (AVX2 required). It has been strictly verified to work in **Ableton Live**. Operation and stability on other DAWs (FL Studio, Bitwig, Studio One, Cubase, etc.) are currently **unverified and unsupported**. Use at your own risk outside of Ableton Live.
+`DynamicsNode` and `ADAASaturator` are written in raw AVX2 intrinsics, processing 8 lanes at once, with vectorised fast `exp2` / `log2` for the decibel conversions.
+
+## What's New in 1.1.0
+
+**Fixed — the silence bug.** In 1.0.0, once the signal overflowed to `Inf`, the envelope state latched to `NaN` and the limiter envelope latched to `Inf`, permanently multiplying the output by zero with no way to recover. All node and limiter states are now sanitised and clamped, and every parameter is smoothed over 20 ms so knob moves cannot spike the cascade.
+
+**Fixed — Drive / ODD / EVEN were effectively frozen.** Their smoothers advanced one sample per block instead of one per sample, so a knob move took roughly 25 seconds to arrive. They now respond in 0.05 s.
+
+**Fixed — ALIGN PHASE did nothing.** The dry path was a no-op, so both phase modes sounded identical. It is now implemented properly.
+
+**Fixed — crossover reconstruction error.** The low band was missing the high crossover's allpass, so the three bands did not sum flat. That error compounded across every stage. Corrected.
+
+**New** — independent per-stage crossovers with LINK, meter boundary dragging, preset browser with 30 factory presets, CONFIG panel with six colour themes and limiter mode/ceiling/release.
+
+**Redesigned GUI** — knob diameter roughly doubled (31 px → 65 px), both stages visible at once in a 3 × 5 band matrix, window reduced from 880 × 750 to 880 × 620.
+
+## System Requirements
+
+* **OS**: Windows 10 / 11 (64-bit)
+* **CPU**: AVX2 required (Intel Haswell 2013+ / AMD Excavator 2015+)
+* **Format**: VST3, Standalone
+* **Tested host**: Ableton Live 11 / 12
+
+⚠️ Compiled and optimised exclusively for Windows. Verified in Ableton Live only. Other DAWs are unverified and unsupported.
 
 ## Installation
 
-1. Download the latest `Multi-Oto.vst3` file from the [[Releases](https://github.com/OTODESK4193/MULTI-OTO/releases/latest)] page.
-2. Move the `.vst3` file to your default Windows VST3 plugin directory:
-`C:\Program Files\Common Files\VST3`
-3. Rescan your plugins in Ableton Live.
+1. Download the latest `MULTI-OTO.vst3` from [Releases](https://github.com/OTODESK4193/MULTI-OTO/releases/latest).
+2. Copy the **whole `MULTI-OTO.vst3` folder** (it is a bundle, not a single file) to `C:\Program Files\Common Files\VST3`.
+3. Rescan plugins in your DAW.
 
-## 📚 User Guide
+## Building from Source
 
-A comprehensive manual covering detailed technical specifications and operational guidelines is included with this repository.
+Requires JUCE 8 at `C:/JUCE` and Visual Studio 2022 or newer.
 
-[ ![Manual PDF (JP)](https://img.shields.io/badge/Manual-PDF_(JP)-red?style=for-the-badge&logo=adobe-acrobat-reader) ](./Source/Assets/MULTI-OTO_UserManual_JP.pdf)
+```
+cmake -B out/build/x64-Release -G "Visual Studio 17 2022" -A x64 .
+cmake --build out/build/x64-Release --config Release
+```
 
-[ ![Manual PDF (EN)](https://img.shields.io/badge/Manual-PDF_(EN)-red?style=for-the-badge&logo=adobe-acrobat-reader) ](./Source/Assets/MULTI-OTO_UserManual_EN.pdf)
+`-A x64` is required — the Visual Studio generator defaults to Win32, which produces a plugin no 64-bit host can load.
 
+## User Guide
+
+* [日本語マニュアル](./Source/Assets/MULTI-OTO_UserManual_JP.md)
+* [English manual](./Source/Assets/MULTI-OTO_UserManual_EN.md)
 
 ## Disclaimer & Stability
 
-This software is provided "as-is", without any warranty of any kind.
-Due to the extreme nature of cascading 128 multiband compressors, extreme volume boosts can occur depending on your parameter settings. **Always place a limiter after MULTI-OTO or use the built-in Master Ceiling control** to protect your hearing and your monitors.
+This software is provided "as is", without any warranty. Cascading 128 multiband compressors can produce extreme output levels depending on your settings. The built-in ceiling is always active, but **always place a limiter after MULTI-OTO** and watch your monitoring volume to protect your hearing and your speakers.
 
 ## License
 
-This project is licensed under the GNU Affero General Public License v3.0 (AGPLv3) - see the [LICENSE](LICENSE) file for details.
-This software is built using the **JUCE 8** framework. In accordance with JUCE 8's open-source licensing terms, this entire project is distributed under the AGPLv3.
+GNU Affero General Public License v3.0 (AGPLv3) — see [LICENSE](LICENSE).
+Built with the **JUCE 8** framework; distributed under AGPLv3 in accordance with JUCE 8's open-source licensing terms.
 
-## 🎓 Credits
+## Credits
 
-**Developer**: @kijyoumusic (OTODESK)
-
-**Music Production Background**: Electronic Music, Sound Design, DSP Engineering
-
+**Developer**: [@kijyoumusic](https://x.com/kijyoumusic) (OTODESK)
 **Target DAW**: Ableton Live 11+
-
 **Framework**: JUCE 8.0.8
-
----
-
-## 📞 Support
-
-* **Social**: [@kijyoumusic](https://x.com/kijyoumusic)

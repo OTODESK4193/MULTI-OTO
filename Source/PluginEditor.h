@@ -4,6 +4,7 @@
 #include "GUI/TabHeader.h"
 #include "GUI/MainPanel.h"
 #include "GUI/PresetBrowser.h"
+#include "GUI/ConfigPanel.h"
 
 // ============================================================================
 //  ContentComponent パターン
@@ -37,13 +38,18 @@ private:
         void connectMeters();
         void wirePresetBrowser();
         void refreshPresetName();
+        void applyThemeFromParam();
 
     private:
+        void loadPresetWithBatch (const PresetRef& ref);
+
         MultiOtoAudioProcessor& processor;
+        MultiOtoLookAndFeel& lookAndFeelRef;
 
         TabHeader header;
         MainPanel mainPanel;
         PresetBrowser presetBrowser;
+        ConfigPanel configPanel;
     } content;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MultiOtoAudioProcessorEditor)

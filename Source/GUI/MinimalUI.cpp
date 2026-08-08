@@ -2,6 +2,10 @@
 #include <cmath>
 
 MultiOtoLookAndFeel::MultiOtoLookAndFeel() : groupFont(juce::FontOptions(12.0f, juce::Font::bold)) {
+    refreshColours();
+}
+
+void MultiOtoLookAndFeel::refreshColours() {
     setColour(juce::Slider::rotarySliderFillColourId, MOColors::accent);
     setColour(juce::Slider::rotarySliderOutlineColourId, MOColors::knobTrack);
     setColour(juce::ComboBox::backgroundColourId, MOColors::knobTrack);
@@ -191,4 +195,11 @@ void ArcKnob::setBounds(juce::Rectangle<int> r) {
 void ArcKnob::setVisible(bool v) {
     slider.setVisible(v);
     if (hasLabel) label.setVisible(v);
+}
+
+void ArcKnob::setAccent(juce::Colour c) {
+    slider.setColour(juce::Slider::rotarySliderFillColourId, c);
+    slider.setColour(juce::Slider::rotarySliderOutlineColourId, MOColors::knobTrack);
+    if (hasLabel) label.setColour(juce::Label::textColourId, MOColors::textDim);
+    slider.repaint();
 }

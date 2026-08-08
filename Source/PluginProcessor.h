@@ -55,6 +55,9 @@ public:
     void loadFactoryPreset(int index);
     void resetToInit();
 
+    /** 2,4,8,...,128 の実数を total_ott のインデックスへ変換して設定する */
+    void setOttCount(int count);
+
     juce::String getCurrentPresetName() const;
     void         setCurrentPresetName(const juce::String& n);
 
