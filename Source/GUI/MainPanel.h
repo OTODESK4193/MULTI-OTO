@@ -93,7 +93,7 @@ public:
         stageLabel[0].setColour (juce::Label::textColourId, MOColors::peach);
         stageLabel[1].setColour (juce::Label::textColourId, MOColors::babyBlue);
         for (auto& l : stageLabel) {
-            l.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
+            l.setFont (juce::Font (juce::FontOptions (13.5f, juce::Font::bold)));
             addAndMakeVisible (l);
         }
 
@@ -187,7 +187,7 @@ public:
         MOColors::paintPanel (g, getLocalBounds());
 
         g.setColour (MOColors::textDim);
-        g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)));
+        g.setFont (juce::Font (juce::FontOptions (11.5f, juce::Font::bold)));
         g.drawText ("PRE-DRIVE / MASTER", globalLabelArea, juce::Justification::centredLeft);
 
         static const char* colNames[5] = { "GAIN", "UP", "DN", "ATK", "REL" };
@@ -200,11 +200,11 @@ public:
             MOColors::paintWell (g, geom[s].block);
 
             g.setColour (MOColors::textDim);
-            g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)));
+            g.setFont (juce::Font (juce::FontOptions (11.5f, juce::Font::bold)));
             for (int c = 0; c < 5; ++c)
                 g.drawText (colNames[c], geom[s].colHeader[c], juce::Justification::centred);
 
-            g.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)));
+            g.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
             for (int r = 0; r < 3; ++r) {
                 g.setColour (rowCols[r]);
                 g.drawText (rowNames[r], geom[s].rowHeader[r], juce::Justification::centredLeft);
@@ -226,15 +226,16 @@ public:
         area.removeFromTop (8);
 
         // --- 2. グローバル 1 行 ---
-        globalLabelArea = area.removeFromTop (14);
+        globalLabelArea = area.removeFromTop (16);
         auto row = area.removeFromTop (84);
 
-        auto ctrl = row.removeFromRight (96);
-        preDriveBtn.setBounds  (ctrl.removeFromTop (24).reduced (2, 1));
+        // コンボのフォントを上げたぶん幅を確保する ("COLOR PHASE" が入る)
+        auto ctrl = row.removeFromRight (118);
+        preDriveBtn.setBounds  (ctrl.removeFromTop (25).reduced (2, 1));
         ctrl.removeFromTop (3);
-        totalOttBox.setBounds  (ctrl.removeFromTop (24).reduced (2, 1));
+        totalOttBox.setBounds  (ctrl.removeFromTop (25).reduced (2, 1));
         ctrl.removeFromTop (3);
-        phaseModeBox.setBounds (ctrl.removeFromTop (24).reduced (2, 1));
+        phaseModeBox.setBounds (ctrl.removeFromTop (25).reduced (2, 1));
         row.removeFromRight (6);
 
         ArcKnob* globals[] = { &inGain, &drive, &oddBlend, &evenBlend,
@@ -302,22 +303,22 @@ private:
         }
 
         inner.removeFromTop (3);
-        auto macro1 = inner.removeFromTop (17);
+        auto macro1 = inner.removeFromTop (20);
         const int mw = (macro1.getWidth() - 8) / 2;
         (idx == 0 ? s1Time : s2Time).slider.setBounds (macro1.removeFromLeft (mw));
         macro1.removeFromLeft (8);
         (idx == 0 ? s1Mix : s2Mix).slider.setBounds (macro1.removeFromLeft (mw));
 
         inner.removeFromTop (3);
-        auto macro2 = inner.removeFromTop (17);
+        auto macro2 = inner.removeFromTop (20);
         (idx == 0 ? s1XLow : s2XLow).slider.setBounds (macro2.removeFromLeft (mw));
         macro2.removeFromLeft (8);
         (idx == 0 ? s1XHigh : s2XHigh).slider.setBounds (macro2.removeFromLeft (mw));
 
-        inner.removeFromTop (5);
+        inner.removeFromTop (4);
 
-        constexpr int rowLabelW = 30;
-        auto colHdr = inner.removeFromTop (13);
+        constexpr int rowLabelW = 34;
+        auto colHdr = inner.removeFromTop (15);
         colHdr.removeFromLeft (rowLabelW);
         const int cw = colHdr.getWidth() / 5;
         for (int c = 0; c < 5; ++c)

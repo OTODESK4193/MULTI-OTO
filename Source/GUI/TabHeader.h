@@ -53,20 +53,20 @@ public:
         g.drawHorizontalLine (getHeight() - 1, 0.0f, (float) getWidth());
 
         // ロゴ
-        g.setFont (juce::Font (juce::FontOptions (16.0f, juce::Font::bold)));
+        g.setFont (juce::Font (juce::FontOptions (17.5f, juce::Font::bold)));
         g.setColour (MOColors::accent);
-        g.drawText ("MULTI-OTO", 18, 0, 130, getHeight(), juce::Justification::centredLeft);
+        g.drawText ("MULTI-OTO", 18, 0, 140, getHeight(), juce::Justification::centredLeft);
 
         // サブタイトル + バージョン
-        g.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)));
+        g.setFont (juce::Font (juce::FontOptions (12.5f, juce::Font::bold)));
         g.setColour (MOColors::textDim);
         g.drawText (juce::String ("Multi-Stage OTT  V") + MULTIOTO_VERSION,
-                    145, 0, 220, getHeight(), juce::Justification::centredLeft);
+                    160, 0, 230, getHeight(), juce::Justification::centredLeft);
 
-        // 現在のプリセット名 (PRESET ボタンの左)
+        // 現在のプリセット名 (CONFIG ボタンの左)
         if (presetName.isNotEmpty())
         {
-            g.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)));
+            g.setFont (juce::Font (juce::FontOptions (12.5f, juce::Font::bold)));
             g.setColour (MOColors::babyBlue);
             g.drawText (presetName, configBtn.getX() - 212, 0, 204, getHeight(),
                         juce::Justification::centredRight, true);
@@ -83,8 +83,8 @@ public:
     void resized() override
     {
         auto r = getLocalBounds();
-        presetBtn.setBounds (r.removeFromRight (86).withSizeKeepingCentre (78, 22));
-        configBtn.setBounds (r.removeFromRight (82).withSizeKeepingCentre (74, 22));
+        presetBtn.setBounds (r.removeFromRight (94).withSizeKeepingCentre (86, 24));
+        configBtn.setBounds (r.removeFromRight (90).withSizeKeepingCentre (82, 24));
     }
 
 private:

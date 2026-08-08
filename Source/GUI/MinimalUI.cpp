@@ -58,11 +58,15 @@ void MultiOtoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int 
     g.setColour(MOColors::text);
     g.fillEllipse(hx - th * 0.30f, hy - th * 0.30f, th * 0.60f, th * 0.60f);
 
-    // 中心に数値
-    const float fontH = juce::jlimit(9.0f, 15.0f, capR * 0.80f);
+    // 中心に数値。桁数が多いときだけ字を詰めて、短い値はできるだけ大きく出す。
+    const juce::String txt = formatValue(slider.getValue());
+    float fontH = juce::jlimit(10.0f, 18.0f, capR * 0.86f);
+    if (txt.length() >= 5)      fontH = juce::jmin(fontH, capR * 0.62f);
+    else if (txt.length() == 4) fontH = juce::jmin(fontH, capR * 0.72f);
+
     g.setColour(slider.isEnabled() ? MOColors::text : MOColors::textDim);
     g.setFont(juce::Font(juce::FontOptions(fontH, juce::Font::bold)));
-    g.drawText(formatValue(slider.getValue()),
+    g.drawText(txt,
                juce::Rectangle<float>(cx - capR, cy - fontH * 0.75f, capR * 2.0f, fontH * 1.5f),
                juce::Justification::centred, false);
 }
@@ -90,7 +94,7 @@ void MultiOtoLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
     const juce::String valTxt  = formatValue(slider.getValue());
 
     auto drawPair = [&](juce::Colour nameCol, juce::Colour valCol) {
-        g.setFont(juce::Font(juce::FontOptions(10.0f, juce::Font::bold)));
+        g.setFont(juce::Font(juce::FontOptions(12.0f, juce::Font::bold)));
         g.setColour(nameCol);
         g.drawText(nameTxt, textArea, juce::Justification::centredLeft, false);
         g.setColour(valCol);
@@ -129,15 +133,15 @@ void MultiOtoLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton
 }
 
 juce::Font MultiOtoLookAndFeel::getLabelFont(juce::Label&) {
-    return juce::Font(juce::FontOptions(10.5f, juce::Font::bold));
+    return juce::Font(juce::FontOptions(12.0f, juce::Font::bold));
 }
 
 juce::Font MultiOtoLookAndFeel::getComboBoxFont(juce::ComboBox&) {
-    return juce::Font(juce::FontOptions(11.5f, juce::Font::bold));
+    return juce::Font(juce::FontOptions(13.5f, juce::Font::bold));
 }
 
 juce::Font MultiOtoLookAndFeel::getPopupMenuFont() {
-    return juce::Font(juce::FontOptions(12.5f, juce::Font::plain));
+    return juce::Font(juce::FontOptions(14.0f, juce::Font::plain));
 }
 
 // ============================================================================
@@ -160,7 +164,7 @@ void ArcKnob::build(juce::AudioProcessorValueTreeState& apvts, const juce::Strin
         label.setText(lT, juce::dontSendNotification);
         label.setJustificationType(juce::Justification::centred);
         label.setColour(juce::Label::textColourId, MOColors::textDim);
-        label.setFont(juce::Font(juce::FontOptions(10.0f, juce::Font::bold)));
+        label.setFont(juce::Font(juce::FontOptions(11.5f, juce::Font::bold)));
         label.setMinimumHorizontalScale(0.75f);
         label.setInterceptsMouseClicks(false, false);
         p->addAndMakeVisible(label);
@@ -186,7 +190,7 @@ void ArcKnob::buildBar(juce::AudioProcessorValueTreeState& apvts, const juce::St
 
 void ArcKnob::setBounds(juce::Rectangle<int> r) {
     if (hasLabel) {
-        auto lab = r.removeFromBottom(13);
+        auto lab = r.removeFromBottom(15);
         label.setBounds(lab.expanded(6, 0));
     }
     slider.setBounds(r);

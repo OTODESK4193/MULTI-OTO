@@ -70,12 +70,12 @@ public:
         g.drawRoundedRectangle (panel, 8.0f, 1.5f);
 
         g.setColour (MOColors::accent);
-        g.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
+        g.setFont (juce::Font (juce::FontOptions (16.0f, juce::Font::bold)));
         g.drawText ("CONFIG", titleArea, juce::Justification::centredLeft);
 
         auto caption = [&] (const juce::String& t, juce::Rectangle<int> r, juce::Colour c) {
             g.setColour (c);
-            g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)));
+            g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
             g.drawText (t, r, juce::Justification::centredLeft);
         };
 
@@ -84,7 +84,7 @@ public:
 
         // 日本語は必ず MOText::u8() を通す (JUCE は const char* を Latin-1 とみなすため)
         g.setColour (MOColors::textDim);
-        g.setFont (MOText::bodyFont (11.5f));
+        g.setFont (MOText::bodyFont (14.0f));
         g.drawFittedText (
             MOText::u8 ("COLOR THEME  -  GUI の配色とノブ・メーターの色を変更します。音には影響しません。"),
             descA, juce::Justification::topLeft, 2);
@@ -96,7 +96,7 @@ public:
             descB, juce::Justification::topLeft, 4);
 
         g.setColour (MOColors::peach);
-        g.setFont (MOText::bodyFont (11.5f, true));
+        g.setFont (MOText::bodyFont (14.0f, true));
         g.drawFittedText (
             MOText::u8 ("128 段のアップワード・コンプレッションは膨大なゲインを生みます。"
                         "CEILING は常に有効ですが、モニターの音量には十分注意してください。"),
@@ -107,39 +107,39 @@ public:
     {
         auto area = getLocalBounds().reduced (26);
 
-        titleArea = area.removeFromTop (26);
+        titleArea = area.removeFromTop (28);
         auto closeRow = titleArea;
-        btnClose.setBounds (closeRow.removeFromRight (68).withSizeKeepingCentre (68, 24));
+        btnClose.setBounds (closeRow.removeFromRight (76).withSizeKeepingCentre (76, 26));
 
-        area.removeFromTop (10);
+        area.removeFromTop (12);
 
         // --- APPEARANCE ---
-        sectionA = area.removeFromTop (14);
-        area.removeFromTop (4);
-        auto rowA = area.removeFromTop (26);
-        themeBox.setBounds (rowA.removeFromLeft (150));
-        area.removeFromTop (4);
-        descA = area.removeFromTop (18);
+        sectionA = area.removeFromTop (16);
+        area.removeFromTop (6);
+        auto rowA = area.removeFromTop (30);
+        themeBox.setBounds (rowA.removeFromLeft (170));
+        area.removeFromTop (8);
+        descA = area.removeFromTop (24);
 
-        area.removeFromTop (14);
+        area.removeFromTop (18);
 
         // --- LIMITER ---
-        sectionB = area.removeFromTop (14);
-        area.removeFromTop (4);
-
-        auto rowB = area.removeFromTop (86);
-        auto modeCell = rowB.removeFromLeft (150);
-        limitModeBox.setBounds (modeCell.removeFromTop (26));
-        rowB.removeFromLeft (20);
-        ceiling.setBounds (rowB.removeFromLeft (86));
-        rowB.removeFromLeft (12);
-        release.setBounds (rowB.removeFromLeft (86));
-
+        sectionB = area.removeFromTop (16);
         area.removeFromTop (6);
-        descB = area.removeFromTop (60);
 
-        area.removeFromTop (8);
-        warnArea = area.removeFromTop (34);
+        auto rowB = area.removeFromTop (96);
+        auto modeCell = rowB.removeFromLeft (170);
+        limitModeBox.setBounds (modeCell.removeFromTop (30));
+        rowB.removeFromLeft (24);
+        ceiling.setBounds (rowB.removeFromLeft (96));
+        rowB.removeFromLeft (14);
+        release.setBounds (rowB.removeFromLeft (96));
+
+        area.removeFromTop (10);
+        descB = area.removeFromTop (78);
+
+        area.removeFromTop (10);
+        warnArea = area.removeFromTop (44);
     }
 
 private:

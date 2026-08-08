@@ -59,8 +59,9 @@ public:
 
         lstCategories.setModel (&categoryListModel);
         lstPresets.setModel (&presetListModel);
-        lstCategories.setRowHeight (22);
-        lstPresets.setRowHeight (22);
+        lstCategories.setRowHeight (27);
+        lstPresets.setRowHeight (27);
+        txtSearch.setFont (juce::Font (juce::FontOptions (14.0f, juce::Font::plain)));
         lstCategories.setColour (juce::ListBox::backgroundColourId, MOColors::well);
         lstPresets.setColour (juce::ListBox::backgroundColourId, MOColors::well);
 
@@ -116,26 +117,38 @@ public:
         g.drawRoundedRectangle (panel, 8.0f, 1.5f);
 
         auto area = getLocalBounds().reduced (26);
-        auto titleRow = area.removeFromTop (26);
+        auto titleRow = area.removeFromTop (28);
         g.setColour (MOColors::accent);
-        g.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
+        g.setFont (juce::Font (juce::FontOptions (16.0f, juce::Font::bold)));
         g.drawText ("PRESETS", titleRow, juce::Justification::centredLeft);
 
-        area.removeFromTop (4);
-        area.removeFromTop (28);   // 検索/ボタン行
-        area.removeFromTop (16);
+        area.removeFromTop (6);
+        area.removeFromTop (30);   // 検索/ボタン行
+        area.removeFromTop (18);
 
         g.setColour (MOColors::textDim);
-        g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)));
-        g.drawText ("CATEGORY", area.getX(),       area.getY() - 13, 160, 12, juce::Justification::left);
-        g.drawText ("PRESET",   area.getX() + 172, area.getY() - 13, 220, 12, juce::Justification::left);
+        g.setFont (juce::Font (juce::FontOptions (11.5f, juce::Font::bold)));
+        g.drawText ("CATEGORY", area.getX(),       area.getY() - 15, 180, 14, juce::Justification::left);
+        g.drawText ("PRESET",   area.getX() + 182, area.getY() - 15, 240, 14, juce::Justification::left);
 
-        // 選択中プリセットの説明 (日本語を含むので CJK 対応フォントで描く)
+        // --- 選択中プリセットの説明 ---
+        // 独立した情報ボックスにして、本文色も text に上げる (dim だと読みづらい)
+        MOColors::paintWell (g, descArea);
+
+        auto inner = descArea.reduced (12, 8);
         if (hoverDescription.isNotEmpty())
         {
+            g.setColour (MOColors::text);
+            g.setFont (MOText::bodyFont (14.0f));
+            g.drawFittedText (hoverDescription, inner, juce::Justification::centredLeft, 3);
+        }
+        else
+        {
             g.setColour (MOColors::textDim);
-            g.setFont (MOText::bodyFont (11.5f));
-            g.drawFittedText (hoverDescription, descArea, juce::Justification::topLeft, 3);
+            g.setFont (MOText::bodyFont (14.0f));
+            g.drawFittedText (MOText::u8 ("プリセットを選ぶと、ここに説明が表示されます。"
+                                          "ダブルクリックまたは Enter で読み込みます。"),
+                              inner, juce::Justification::centredLeft, 2);
         }
     }
 
@@ -143,22 +156,22 @@ public:
     {
         auto area = getLocalBounds().reduced (26);
 
-        area.removeFromTop (26);   // タイトル
-        area.removeFromTop (4);
+        area.removeFromTop (28);   // タイトル
+        area.removeFromTop (6);
 
-        auto topRow = area.removeFromTop (28);
-        txtSearch.setBounds (topRow.removeFromLeft (220));
-        btnSave.setBounds  (topRow.removeFromRight (68));
+        auto topRow = area.removeFromTop (30);
+        txtSearch.setBounds (topRow.removeFromLeft (240));
+        btnSave.setBounds  (topRow.removeFromRight (76));
         topRow.removeFromRight (8);
-        btnInit.setBounds  (topRow.removeFromRight (68));
+        btnInit.setBounds  (topRow.removeFromRight (76));
         topRow.removeFromRight (8);
-        btnClose.setBounds (topRow.removeFromRight (68));
+        btnClose.setBounds (topRow.removeFromRight (76));
 
-        area.removeFromTop (16);
+        area.removeFromTop (18);
 
-        descArea = area.removeFromBottom (42).withTrimmedTop (8);
+        descArea = area.removeFromBottom (66).withTrimmedTop (10);
 
-        lstCategories.setBounds (area.removeFromLeft (160));
+        lstCategories.setBounds (area.removeFromLeft (180));
         area.removeFromLeft (12);
         lstPresets.setBounds (area);
     }
@@ -368,15 +381,15 @@ private:
 
             const bool fac = (! isCategoryList) && row < factoryFlags.size() && factoryFlags[row];
 
-            g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
+            g.setFont (juce::Font (juce::FontOptions (14.0f, juce::Font::bold)));
             g.setColour (selected ? MOColors::accent : (fac ? MOColors::peach : MOColors::text));
-            g.drawText (items[row], 10, 0, w - 46, h, juce::Justification::centredLeft, true);
+            g.drawText (items[row], 12, 0, w - 78, h, juce::Justification::centredLeft, true);
 
             if (fac)
             {
-                g.setFont (juce::Font (juce::FontOptions (9.0f, juce::Font::bold)));
+                g.setFont (juce::Font (juce::FontOptions (10.5f, juce::Font::bold)));
                 g.setColour (MOColors::textDim);
-                g.drawText ("FACTORY", w - 60, 0, 52, h, juce::Justification::centredRight);
+                g.drawText ("FACTORY", w - 72, 0, 62, h, juce::Justification::centredRight);
             }
         }
 

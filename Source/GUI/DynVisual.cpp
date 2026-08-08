@@ -273,14 +273,14 @@ void DynVisualComponent::paint (juce::Graphics& g)
                             : MOColors::knobTrack);
     g.fillRoundedRectangle (titleBtnArea.toFloat(), 3.0f);
 
-    g.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)));
+    g.setFont (juce::Font (juce::FontOptions (12.5f, juce::Font::bold)));
     g.setColour (isSelected ? (stage == 1 ? MOColors::peach : MOColors::babyBlue) : MOColors::textDim);
     g.drawText (title, titleBtnArea, juce::Justification::centred);
 
     const float loF = getLoFreq();
     const float hiF = getHiFreq();
 
-    g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)));
+    g.setFont (juce::Font (juce::FontOptions (11.5f, juce::Font::bold)));
     g.setColour ((hoveredBoundary >= 0 || draggedBoundary >= 0) ? MOColors::text : MOColors::textDim);
     g.drawText (freqToString (loF) + " / " + freqToString (hiF),
                 headerRow, juce::Justification::centredRight);
@@ -376,7 +376,7 @@ void DynVisualComponent::paint (juce::Graphics& g)
         }
 
         // ゲイン数値 (dB)
-        g.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)));
+        g.setFont (juce::Font (juce::FontOptions (12.5f, juce::Font::bold)));
         juce::String dbStr;
         if (smoothGainDb[b] > 0.05f)       dbStr = "+" + juce::String (smoothGainDb[b], 1) + "dB";
         else if (smoothGainDb[b] < -0.05f) dbStr = juce::String (smoothGainDb[b], 1) + "dB";
@@ -387,7 +387,7 @@ void DynVisualComponent::paint (juce::Graphics& g)
         g.drawText (dbStr, bx, area.getY() + 3, bw, 16, juce::Justification::centred);
 
         // バンド名
-        g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)));
+        g.setFont (juce::Font (juce::FontOptions (11.5f, juce::Font::bold)));
         g.setColour (upColors[b].withAlpha (0.9f));
         g.drawText (bandNames[b], bx, area.getY() + bandH - 16, bw, 16, juce::Justification::centred);
     }
