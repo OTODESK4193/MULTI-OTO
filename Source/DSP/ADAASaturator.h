@@ -33,8 +33,9 @@ public:
         const float w_e = evenAmount * 0.01f;
 
         // 積分定数 C1 の動的導出
-        const float C1_pos = (-0.3125f * w_o) + (0.457143f * w_e);
-        const float C1_neg = (-0.3125f * w_o) - (0.457143f * w_e);
+        // 0.481600f = 偶数次関数 f_even の [0,1] 区間の積分値 (kEvenNorm 込み)
+        const float C1_pos = (-0.3125f * w_o) + (0.481600f * w_e);
+        const float C1_neg = (-0.3125f * w_o) - (0.481600f * w_e);
 
         // --- 2. SIMDレジスタへのブロードキャスト ---
         const __m256 v_drive = _mm256_set1_ps(d_lin);
@@ -47,7 +48,8 @@ public:
         // 動的閾値とテイラー定数
         const __m256 eps_min = _mm256_set1_ps(1e-5f);
         const __m256 eps_rel = _mm256_set1_ps(1e-4f);
-        const __m256 taylor_c = _mm256_set1_ps(0.5f); // 1/2
+        // ADAA1 の 2次テイラー項は f''(m) * h^2 / 6  (h = ΔX/2)。旧実装は 1/2 だった。
+        const __m256 taylor_c = _mm256_set1_ps(1.0f / 6.0f);
 
         // x軸上のクリップ境界 (L_bound = 1.0)
         const __m256 L_bound = _mm256_set1_ps(1.0f);
@@ -138,8 +140,16 @@ private:
                 _mm256_mul_ps(X2, _mm256_set1_ps(0.375f)))));
         __m256 f_poly = _mm256_mul_ps(X, poly);
 
-        __m256 omx2 = _mm256_sub_ps(_mm256_set1_ps(1.0f), X2);
-        __m256 f_even = _mm256_mul_ps(omx2, _mm256_mul_ps(omx2, omx2));
+        // 偶数次項: (256/27) * x^2 * (1-x^2)^3
+        // 旧実装は (1-x^2)^3 だったため f(0) = w_e となり、無音時にも
+        // EVEN の量だけ DC が出ていた。x^2 を掛けて f(0)=0 にしつつ、
+        // x=±1 での C2 連続性 (値・1階・2階微分がすべて 0) は維持している。
+        // (256/27) はピーク値を 1.0 に正規化するための係数。
+        __m256 f_even = _mm256_mul_ps(X2,
+            _mm256_add_ps(_mm256_set1_ps(9.481481f),
+                _mm256_mul_ps(X2, _mm256_add_ps(_mm256_set1_ps(-28.444444f),
+                    _mm256_mul_ps(X2, _mm256_add_ps(_mm256_set1_ps(28.444444f),
+                        _mm256_mul_ps(X2, _mm256_set1_ps(-9.481481f))))))));
 
         __m256 f_mix = _mm256_add_ps(_mm256_mul_ps(f_poly, w_o), _mm256_mul_ps(f_even, w_e));
 
@@ -161,10 +171,13 @@ private:
                 _mm256_mul_ps(X2, _mm256_set1_ps(0.0625f)))));
         __m256 F1_odd = _mm256_mul_ps(X2, poly);
 
-        __m256 F1_even = _mm256_mul_ps(X, _mm256_add_ps(_mm256_set1_ps(1.0f),
-            _mm256_mul_ps(X2, _mm256_add_ps(_mm256_set1_ps(-1.0f),
-                _mm256_mul_ps(X2, _mm256_add_ps(_mm256_set1_ps(0.6f),
-                    _mm256_mul_ps(X2, _mm256_set1_ps(-0.142857f))))))));
+        // ∫ (256/27) x^2 (1-x^2)^3 dx
+        //   = (256/27) * ( x^3/3 - 3x^5/5 + 3x^7/7 - x^9/9 )
+        __m256 F1_even = _mm256_mul_ps(_mm256_mul_ps(X, X2),
+            _mm256_add_ps(_mm256_set1_ps(3.160494f),
+                _mm256_mul_ps(X2, _mm256_add_ps(_mm256_set1_ps(-5.688889f),
+                    _mm256_mul_ps(X2, _mm256_add_ps(_mm256_set1_ps(4.063492f),
+                        _mm256_mul_ps(X2, _mm256_set1_ps(-1.053498f))))))));
 
         __m256 F1_mix = _mm256_add_ps(_mm256_mul_ps(F1_odd, w_o), _mm256_mul_ps(F1_even, w_e));
 
@@ -188,9 +201,12 @@ private:
         __m256 fdp_odd = _mm256_mul_ps(_mm256_set1_ps(7.5f),
             _mm256_sub_ps(_mm256_mul_ps(X2, X), X));
 
-        __m256 omx2 = _mm256_sub_ps(_mm256_set1_ps(1.0f), X2);
-        __m256 fdp_even = _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(-6.0f), _mm256_mul_ps(omx2, omx2)),
-            _mm256_mul_ps(_mm256_set1_ps(24.0f), _mm256_mul_ps(X2, omx2)));
+        // d²/dx² [ (256/27)(x^2 - 3x^4 + 3x^6 - x^8) ]
+        //   = (256/27)( 2 - 36x^2 + 90x^4 - 56x^6 )
+        __m256 fdp_even = _mm256_add_ps(_mm256_set1_ps(18.962963f),
+            _mm256_mul_ps(X2, _mm256_add_ps(_mm256_set1_ps(-341.333333f),
+                _mm256_mul_ps(X2, _mm256_add_ps(_mm256_set1_ps(853.333333f),
+                    _mm256_mul_ps(X2, _mm256_set1_ps(-530.962963f)))))));
 
         __m256 fdp_mix = _mm256_add_ps(_mm256_mul_ps(fdp_odd, w_o), _mm256_mul_ps(fdp_even, w_e));
 

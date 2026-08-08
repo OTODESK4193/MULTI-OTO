@@ -38,6 +38,7 @@ int DynVisualComponent::getBandAtPosition (juce::Point<int> pos) const
 
     auto area = getLocalBounds().reduced (8, 6);
     area.removeFromTop (22);
+    area.removeFromTop (4);   // paint() と同じオフセットに合わせる
 
     int totalW = area.getWidth();
     float loF = (xoverLo != nullptr) ? xoverLo->load (std::memory_order_relaxed) : 88.0f;
@@ -71,7 +72,9 @@ void DynVisualComponent::mouseMove (const juce::MouseEvent& e)
     int prevHover = hoveredBand;
     hoveredBand = getBandAtPosition (e.getPosition());
 
-    if (isHeaderPosition (e.getPosition()))
+    // タイトル部がステージ選択ボタンとして機能するのは、コールバックが
+    // 設定されているときだけ (両ステージ同時表示では選択の概念がない)
+    if (isHeaderPosition (e.getPosition()) && onStageSelected != nullptr)
         setMouseCursor (juce::MouseCursor::PointingHandCursor);
     else if (hoveredBand != -1)
         setMouseCursor (juce::MouseCursor::UpDownResizeCursor);
@@ -96,7 +99,7 @@ void DynVisualComponent::mouseDown (const juce::MouseEvent& e)
 {
     if (isHeaderPosition (e.getPosition()))
     {
-        if (onStageSelected) onStageSelected (stage);
+        if (onStageSelected != nullptr) onStageSelected (stage);
         return;
     }
 

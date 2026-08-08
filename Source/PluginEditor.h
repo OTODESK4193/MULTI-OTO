@@ -18,7 +18,7 @@ public:
 
 private:
     static constexpr int kBaseW = 880;
-    static constexpr int kBaseH = 750;
+    static constexpr int kBaseH = 580;
 
     MultiOtoAudioProcessor& audioProcessor;
     MultiOtoLookAndFeel laf;

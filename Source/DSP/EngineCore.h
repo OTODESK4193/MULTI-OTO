@@ -32,11 +32,13 @@ public:
     void reset();
 
 private:
-    // 【変更】限界を128に引き上げ
     static constexpr int MAX_NODES = 128;
 
+    void processChunk(float* left, float* right, int numSamples);
+    void writeMeters();
+
     juce::SmoothedValue<float> driveSmoother, oddSmoother, evenSmoother, inGainSmoother, outGainSmoother;
-    EngineParams currentParams;
+    EngineParams currentParams {};   // updateParameters 前に process されても安全なようゼロ初期化
 
     std::vector<Crossover> crossovers;
     std::vector<Crossover> dryCrossovers;
@@ -58,5 +60,8 @@ public:
 private:
     float limiterEnvL = 0, limiterEnvR = 0, limiterReleaseCoef = 0, currentLimitThreshold = 0.988f;
     double currentSampleRate = 48000.0;
+    int  maxBlockSize = 512;
+    int  activeCount  = -1;
+    float cachedXLow  = -1.0f, cachedXHigh = -1.0f;
     std::atomic<bool> isPrepared{ false };
 };
