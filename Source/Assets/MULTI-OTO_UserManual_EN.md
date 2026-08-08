@@ -212,21 +212,25 @@ There are 30 destinations. Because that is far too many for one flat list, the D
 | S1 / S2 **Time** | ±2 octaves (1/4x to 4x) |
 | S1 / S2 **Low X / High X** | ±2 octaves |
 | S1 / S2 **Mix** | ±50 % |
-| Per-band **Gain** (6) | ±48 ÷ count dB per node (see below) |
+| Per-band **Gain** (6) | ±24 dB — the GAIN knob's own full range |
 | Per-band **Atk / Rel** (12) | ±3 octaves (1/8x to 8x) |
 | **LFO 1-4 Rate** | ±15 Hz |
 
 Frequencies and times modulate **exponentially** rather than by addition. Adding ±500 Hz to 88 Hz would collapse the downward side; ±2 octaves swings symmetrically from 22 Hz to 352 Hz.
 
-**Band gain is the special case.** Gain is applied at every node, so its effect scales with the cascade count — ±3 dB at 128 nodes would be ±384 dB, permanently pinned against the safety clamp. The modulation depth is therefore divided by the node count, so the per-node swing is `±48 ÷ count` dB. A stage owns half the chain, so that works out to **±24 dB within one stage** and **±48 dB across the whole chain** if you modulate the same band in both stages — the same totals whatever count you pick.
+**Band gain is not scaled by the node count.** An earlier version divided the modulation depth by the count, on the theory that gain applied at every node must accumulate in proportion to the count. In practice nothing but x2 produced an audible change.
+
+The reason is that **there is a compressor between every pair of nodes**. Whatever one node lifts, the next node's downward side pulls straight back down, so gain does not stack up node by node. "Total dB across the cascade" was simply the wrong metric.
+
+What you hear is the per-node depth itself, so the depth is now a flat **±24 dB** — the GAIN knob's own range — at every count. Whatever x2 gave you, x128 gives you too.
 
 That swings how hard the cascade is driven into compression, so the output level stays controlled while the density and pumping depth change dramatically.
 
-The flip side is that the per-node swing at 128 nodes is only ±0.38 dB. Against a knob that spans ±24 dB, drawing that to scale would be less than one pixel wide. **The band therefore has a minimum display width of about 10 px** — you can always see that modulation is assigned, though while that minimum is in effect the width is not strictly proportional to the amount.
+On the safety side, the per-node result is clamped to ±24 dB, exactly what you get by winding the GAIN knob to its stop by hand, and every node clamps its input at +120 dBFS, so no cascade length can reach Inf or NaN. The output limiter still guarantees CEILING. **Higher counts do get violent — that is the design.** Turn AMT down if you want it tamer.
 
-A small modulation also puts the live marker almost on top of the knob's own handle. The marker is drawn after the handle with a background-coloured outline, so it stays visible even when the two overlap. While the minimum width is in effect the marker is mapped onto the *displayed* band, otherwise it would not move by even a pixel and would look frozen.
+A small modulation puts the live marker almost on top of the knob's own handle. The marker is drawn after the handle with a background-coloured outline, so it stays visible. If the band would be thinner than about 10 px it is widened to that minimum, and the marker is then mapped onto the *displayed* band — otherwise it would not move by a pixel and would look frozen.
 
-**The meters show it too.** Modulating a band gain overlays a faint green region on that band in the DYNAMICS METER — the range the gain can sweep — with the live bar moving inside it. It runs through the same `applyModToValue()` as the knobs, so the scaling matches.
+**The meters show it too.** Modulating a band gain overlays a faint green region on that band in the DYNAMICS METER — the range the gain can sweep — with the live bar moving inside it. **Modulating Low X / High X moves the band boundaries themselves**, and the frequency readout in the meter header follows. Both run through the same `applyModToValue()` as the knobs, so what you see is where the audio actually is.
 
 **Modulating one LFO's rate from another** is the heart of this matrix — the period itself stretches and contracts, breaking out of simple repetition. An LFO can even modulate its own rate (it resolves safely with one block of delay).
 
@@ -234,7 +238,7 @@ A small modulation also puts the live marker almost on top of the knob's own han
 
 Any knob that is a destination has **part of its ring recoloured** — that segment is the span the current assignment can sweep — with a **bright line crossing the ring** at the live position. On the TIME / MIX / LOW X / HIGH X bars the span appears as a tinted region with a vertical line for the current value.
 
-The band is computed through `ModMatrix::applyModToValue()`, the same function the DSP uses, so **what you see is what you hear** — with the single exception of band gain, where a minimum display width kicks in when the swing would be sub-pixel (see below).
+The band is computed through `ModMatrix::applyModToValue()`, the same function the DSP uses, so **what you see is what you hear** — the only exception being a 10 px minimum display width that kicks in when a swing would otherwise be sub-pixel.
 
 Modulation is computed at block rate and the knobs themselves do not move — the base value is preserved and the offset is applied on the way into the DSP. That is the usual synth convention, and it means you can still edit the base value while modulation is running.
 

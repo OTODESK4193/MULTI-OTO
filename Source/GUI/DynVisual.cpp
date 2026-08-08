@@ -17,17 +17,39 @@ static float normToLogFreq (float n)
 }
 
 // ============================================================================
+// クロスオーバー周波数に MOD を適用して返す。
+// バンド幅の描画もマウスの当たり判定もこの値を使うので、「見えている境界」と
+// 「実際に鳴っている境界」が常に一致する。DSP 側 (PluginProcessor::readModParams)
+// とまったく同じ applyModToValue() を通しているので倍率もずれない。
+float DynVisualComponent::applyXoverMod (int dstBase, float base, float lo, float hi) const
+{
+    if (matrix == nullptr) return base;
+
+    const int   dst = (stage == 1 ? ModMatrix::DstS1XLow : ModMatrix::DstS2XLow) + dstBase;
+    const float m   = matrix->getForGui (dst);
+    if (std::abs (m) < 1.0e-6f) return base;
+
+    return juce::jlimit (lo, hi,
+        static_cast<float> (matrix->applyModToValue (dst, base, m)));
+}
+
 float DynVisualComponent::getLoFreq() const
 {
     if (paramXLow == nullptr) return 88.0f;
-    return paramXLow->convertFrom0to1 (paramXLow->getValue());
+    const float base = paramXLow->convertFrom0to1 (paramXLow->getValue());
+    return applyXoverMod (0, base, 20.0f, 1000.0f);
 }
 
 float DynVisualComponent::getHiFreq() const
 {
     if (paramXHigh == nullptr) return 2500.0f;
-    return paramXHigh->convertFrom0to1 (paramXHigh->getValue());
+    const float base = paramXHigh->convertFrom0to1 (paramXHigh->getValue());
+    return applyXoverMod (1, base, 1000.0f, 20000.0f);
 }
+
+// 境界ドラッグ (setBoundaryFreq) はマウス座標から周波数を直接作ってベース値へ
+// 書き込むため、現在値を読み戻さない。よって MOD が掛かっていてもベース値が
+// LFO の分だけ流れていくことはない。
 
 // ============================================================================
 void DynVisualComponent::timerCallback()

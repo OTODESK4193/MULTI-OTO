@@ -103,8 +103,9 @@ private:
     static constexpr float kGainMax =  18.0f;
     static constexpr int   kBoundaryGrab = 6;   // 境界の当たり判定 (±px)
 
-    float getLoFreq() const;
+    float getLoFreq() const;        // MOD 適用後 (表示・当たり判定とも同じ値を使う)
     float getHiFreq() const;
+    float applyXoverMod (int dstBase, float base, float lo, float hi) const;
 
     /** バンド矩形の位置と幅を求める (paint / ヒットテストで共用) */
     void computeBandLayout (juce::Rectangle<int>& areaOut, int bandX[3], int bandW[3]) const;
