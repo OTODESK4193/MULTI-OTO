@@ -89,7 +89,6 @@ int DynVisualComponent::getBandAtPosition (juce::Point<int> pos) const
 
 int DynVisualComponent::getBoundaryAtPosition (juce::Point<int> pos) const
 {
-    if (! crossoverEditable) return -1;
     if (isHeaderPosition (pos)) return -1;
     if (paramXLow == nullptr || paramXHigh == nullptr) return -1;
 

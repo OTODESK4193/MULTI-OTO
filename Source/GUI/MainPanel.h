@@ -77,11 +77,6 @@ public:
         s1OnBtn.setButtonText ("ON");
         s2OnBtn.setButtonText ("ON");
 
-        // --- クロスオーバー LINK ---
-        setupBtn (xoverLinkBtn, "xover_link", xoverLinkAt, MOColors::mint);
-        xoverLinkBtn.setButtonText ("LINK X");
-        xoverLinkBtn.setTooltip ("ON: Stage 2 のクロスオーバーが Stage 1 に追従します");
-
         // --- Stage 行列 ---
         buildStage (apvts, laf, 1, s1Gain, s1Up, s1Dn, s1Time, s1Mix, s1Atk, s1Rel,
                     s1XLow, s1XHigh, MOColors::peach);
@@ -96,13 +91,6 @@ public:
             l.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
             addAndMakeVisible (l);
         }
-
-        // LINK 連動: Stage1 の XO を動かしたら Stage2 へ写す
-        s1XLow.slider.onValueChange  = [this] { mirrorXoverIfLinked(); };
-        s1XHigh.slider.onValueChange = [this] { mirrorXoverIfLinked(); };
-        xoverLinkBtn.onClick         = [this] { updateXoverLink(); };
-
-        updateXoverLink();
     }
 
     ~MainPanel() override
@@ -121,7 +109,6 @@ public:
     {
         dynS1.bindStageParameters (apvts, 1);
         dynS2.bindStageParameters (apvts, 2);
-        updateXoverLink();
     }
 
     // ------------------------------------------------------------------
@@ -237,11 +224,6 @@ private:
         auto titleRow = inner.removeFromTop (20);
         stageLabel[idx].setBounds (titleRow.removeFromLeft (70));
         (idx == 0 ? s1OnBtn : s2OnBtn).setBounds (titleRow.removeFromRight (46).withSizeKeepingCentre (44, 18));
-        if (idx == 1)
-        {
-            titleRow.removeFromRight (6);
-            xoverLinkBtn.setBounds (titleRow.removeFromRight (60).withSizeKeepingCentre (58, 18));
-        }
 
         inner.removeFromTop (3);
         auto macro1 = inner.removeFromTop (17);
@@ -284,25 +266,6 @@ private:
     }
 
     // ------------------------------------------------------------------
-    void mirrorXoverIfLinked()
-    {
-        if (! xoverLinkBtn.getToggleState()) return;
-        s2XLow.slider.setValue  (s1XLow.slider.getValue(),  juce::sendNotificationSync);
-        s2XHigh.slider.setValue (s1XHigh.slider.getValue(), juce::sendNotificationSync);
-    }
-
-    void updateXoverLink()
-    {
-        const bool linked = xoverLinkBtn.getToggleState();
-
-        s2XLow.slider.setEnabled (! linked);
-        s2XHigh.slider.setEnabled (! linked);
-        dynS2.setCrossoverEditable (! linked);
-
-        if (linked) mirrorXoverIfLinked();
-    }
-
-    // ------------------------------------------------------------------
     struct StageGeom {
         juce::Rectangle<int> block;
         juce::Rectangle<int> colHeader[5];
@@ -322,8 +285,8 @@ private:
 
     DynVisualComponent dynS1, dynS2;
 
-    juce::TextButton s1OnBtn, s2OnBtn, xoverLinkBtn;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> s1OnAt, s2OnAt, xoverLinkAt;
+    juce::TextButton s1OnBtn, s2OnBtn;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> s1OnAt, s2OnAt;
 
     ArcKnob s1Gain[3], s1Up[3], s1Dn[3], s1Time, s1Mix, s1Atk[3], s1Rel[3], s1XLow, s1XHigh;
     ArcKnob s2Gain[3], s2Up[3], s2Dn[3], s2Time, s2Mix, s2Atk[3], s2Rel[3], s2XLow, s2XHigh;

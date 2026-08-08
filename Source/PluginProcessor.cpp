@@ -34,11 +34,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::crea
     // Stage 1 のクロスオーバー (旧バージョンとの互換のため ID は据え置き)
     addFreq("xover_low", "S1 Low Freq", 20.0f, 1000.0f, 88.0f);
     addFreq("xover_high", "S1 High Freq", 1000.0f, 20000.0f, 2500.0f);
-    // Stage 2 のクロスオーバー
+    // Stage 2 のクロスオーバー (Stage 1 とは完全に独立)
     addFreq("s2_xover_low", "S2 Low Freq", 20.0f, 1000.0f, 88.0f);
     addFreq("s2_xover_high", "S2 High Freq", 1000.0f, 20000.0f, 2500.0f);
-    // ON のとき Stage2 は Stage1 に追従する (既定 ON = v1.0 と同じ挙動)
-    addBool("xover_link", "Crossover Link", true);
 
     auto buildStageParams = [&](int s) {
         juce::String st = juce::String(s);
@@ -131,11 +129,10 @@ void MultiOtoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.xLow = apvts.getRawParameterValue("xover_low")->load(std::memory_order_relaxed);
     p.xHigh = apvts.getRawParameterValue("xover_high")->load(std::memory_order_relaxed);
 
-    // LINK は DSP 側でも解決する。エディタを閉じたまま自動化された場合でも
-    // Stage2 が確実に Stage1 へ追従するようにするため。
-    const bool xLink = apvts.getRawParameterValue("xover_link")->load(std::memory_order_relaxed) > 0.5f;
-    p.xLow2  = xLink ? p.xLow  : apvts.getRawParameterValue("s2_xover_low")->load(std::memory_order_relaxed);
-    p.xHigh2 = xLink ? p.xHigh : apvts.getRawParameterValue("s2_xover_high")->load(std::memory_order_relaxed);
+    // Stage 2 の帯域分割は Stage 1 と完全に独立。
+    // 2 段で異なる分割をぶつけることで、帯域の重なりから複雑な位相干渉が生まれる。
+    p.xLow2  = apvts.getRawParameterValue("s2_xover_low")->load(std::memory_order_relaxed);
+    p.xHigh2 = apvts.getRawParameterValue("s2_xover_high")->load(std::memory_order_relaxed);
 
     p.s1_gain[0] = apvts.getRawParameterValue("s1_gain_l")->load(std::memory_order_relaxed);
     p.s1_gain[1] = apvts.getRawParameterValue("s1_gain_m")->load(std::memory_order_relaxed);

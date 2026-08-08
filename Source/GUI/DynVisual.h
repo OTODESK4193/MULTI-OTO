@@ -29,9 +29,6 @@ public:
     void setSelected (bool sel) { isSelected = sel; repaint(); }
     bool getSelected() const { return isSelected; }
 
-    /** LINK X が ON のとき Stage2 側の境界ドラッグを無効にする */
-    void setCrossoverEditable (bool e) { crossoverEditable = e; repaint(); }
-
     void bindStageParameters (juce::AudioProcessorValueTreeState& apvts, int stageNum)
     {
         stage = stageNum;
@@ -87,7 +84,6 @@ private:
     int draggedBand = -1;
     int hoveredBoundary = -1;   // 0 = LOW/MID, 1 = MID/HIGH
     int draggedBoundary = -1;
-    bool crossoverEditable = true;
 
     enum DragTarget { TargetGain, TargetUpward, TargetDownward } dragTarget = TargetGain;
     float dragStartValue = 0.0f;
