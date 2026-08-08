@@ -14,6 +14,9 @@
 static_assert (sizeof (juce::dsp::SIMDRegister<float>) == 32,
                "MULTI-OTO requires an 8-wide (AVX2) juce::dsp::SIMDRegister<float>. "
                "Check that /arch:AVX2 is enabled and JUCE is building its AVX path.");
+static_assert (alignof (juce::dsp::SIMDRegister<float>) == 32,
+               "SIMDRegister<float> must be 32-byte aligned. std::vector uses aligned "
+               "operator new for over-aligned types only from C++17 onwards.");
 
 class DynamicsNode {
 public:

@@ -115,8 +115,6 @@ public:
         driftTarget = 0.0f;
         driftCountdown = 0;
         destAccum.fill (0.0f);
-        rangeMin.fill (0.0f);
-        rangeMax.fill (0.0f);
         for (auto& a : guiDestAccum) a.store (0.0f, std::memory_order_relaxed);
         for (auto& a : guiRangeMin)  a.store (0.0f, std::memory_order_relaxed);
         for (auto& a : guiRangeMax)  a.store (0.0f, std::memory_order_relaxed);
@@ -225,8 +223,6 @@ public:
         }
 
         destAccum = localAccum;
-        rangeMin  = localMin;
-        rangeMax  = localMax;
 
         for (size_t d = 0; d < NumDsts; ++d)
         {
@@ -340,8 +336,6 @@ private:
     int   driftCountdown = 0;
 
     std::array<float, NumDsts> destAccum {};
-    std::array<float, NumDsts> rangeMin {};
-    std::array<float, NumDsts> rangeMax {};
 
     juce::Random rng;
 

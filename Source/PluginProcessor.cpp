@@ -135,6 +135,73 @@ MultiOtoAudioProcessor::MultiOtoAudioProcessor()
     apvts(*this, nullptr, "PARAMETERS", createParameterLayout())
 {
     engineCore = std::make_unique<EngineCore>();
+    cacheParameterPointers();
+}
+
+// ============================================================================
+//  パラメータポインタのキャッシュ (コンストラクタで 1 回だけ)
+// ============================================================================
+void MultiOtoAudioProcessor::cacheParameterPointers() {
+    auto g = [this](const char* id) { return apvts.getRawParameterValue(id); };
+
+    rp.totalOtt   = g("total_ott");
+    rp.predriveOn = g("predrive_on");
+    rp.stageOn[0] = g("s1_on");
+    rp.stageOn[1] = g("s2_on");
+
+    rp.inGain = g("in_gain");
+    rp.drive  = g("drive");
+    rp.odd    = g("odd_blend");
+    rp.even   = g("even_blend");
+
+    rp.xLow[0]  = g("xover_low");     rp.xHigh[0] = g("xover_high");
+    rp.xLow[1]  = g("s2_xover_low");  rp.xHigh[1] = g("s2_xover_high");
+
+    static const char* band[3] = { "l", "m", "h" };
+    for (int st = 0; st < 2; ++st) {
+        const juce::String sp = "s" + juce::String(st + 1) + "_";
+        for (int b = 0; b < 3; ++b) {
+            rp.gain [st][b] = g((sp + "gain_"  + band[b]).toRawUTF8());
+            rp.depth[st][b] = g((sp + "depth_" + band[b]).toRawUTF8());
+            rp.up   [st][b] = g((sp + "up_"    + band[b]).toRawUTF8());
+            rp.down [st][b] = g((sp + "down_"  + band[b]).toRawUTF8());
+            rp.atk  [st][b] = g((sp + "atk_"   + band[b]).toRawUTF8());
+            rp.rel  [st][b] = g((sp + "rel_"   + band[b]).toRawUTF8());
+        }
+        rp.time[st] = g((sp + "time").toRawUTF8());
+        rp.mix [st] = g((sp + "mix").toRawUTF8());
+    }
+
+    rp.postHpf      = g("post_hpf");
+    rp.postLpf      = g("post_lpf");
+    rp.dryWet       = g("dry_wet");
+    rp.outGain      = g("out_gain");
+    rp.limitCeil    = g("limit_ceil");
+    rp.limitRelease = g("limit_release");
+    rp.limitMode    = g("limit_mode");
+    rp.phaseMode    = g("phase_mode");
+
+    for (int i = 0; i < ModMatrix::kNumLfos; ++i) {
+        const juce::String lp = "lfo" + juce::String(i + 1) + "_";
+        rp.lfoWave[i]     = g((lp + "wave").toRawUTF8());
+        rp.lfoSync[i]     = g((lp + "sync").toRawUTF8());
+        rp.lfoSyncRate[i] = g((lp + "syncrate").toRawUTF8());
+        rp.lfoRate[i]     = g((lp + "rate").toRawUTF8());
+    }
+
+    for (int i = 0; i < ModMatrix::kNumSlots; ++i) {
+        const juce::String mp = "mod" + juce::String(i + 1) + "_";
+        rp.modSrc[i] = g((mp + "src").toRawUTF8());
+        rp.modDst[i] = g((mp + "dst").toRawUTF8());
+        rp.modAmt[i] = g((mp + "amt").toRawUTF8());
+        rp.modUni[i] = g((mp + "uni").toRawUTF8());
+    }
+
+    // ID の打ち間違いを開発中に確実に検出する
+    jassert(rp.totalOtt && rp.phaseMode && rp.limitMode
+            && rp.gain[1][2] && rp.rel[1][2] && rp.mix[1]
+            && rp.lfoRate[ModMatrix::kNumLfos - 1]
+            && rp.modUni[ModMatrix::kNumSlots - 1]);
 }
 
 MultiOtoAudioProcessor::~MultiOtoAudioProcessor() = default;
@@ -149,35 +216,28 @@ void MultiOtoAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBloc
 // ============================================================================
 //  MOD MATRIX
 // ============================================================================
-ModMatrix::Params MultiOtoAudioProcessor::readModParams() {
+ModMatrix::Params MultiOtoAudioProcessor::readModParams() const {
     ModMatrix::Params mp;
 
-    auto raw = [this](const juce::String& id) {
-        auto* v = apvts.getRawParameterValue(id);
-        return (v != nullptr) ? v->load(std::memory_order_relaxed) : 0.0f;
-        };
-
     for (int i = 0; i < ModMatrix::kNumLfos; ++i) {
-        const juce::String n(i + 1);
         auto& l = mp.lfo[static_cast<size_t>(i)];
-        l.wave     = static_cast<int>(raw("lfo" + n + "_wave"));
-        l.sync     = raw("lfo" + n + "_sync") > 0.5f;
-        l.rateSync = static_cast<int>(raw("lfo" + n + "_syncrate"));
-        l.rateHz   = raw("lfo" + n + "_rate");
+        l.wave     = static_cast<int>(rd(rp.lfoWave[i]));
+        l.sync     = rd(rp.lfoSync[i]) > 0.5f;
+        l.rateSync = static_cast<int>(rd(rp.lfoSyncRate[i]));
+        l.rateHz   = rd(rp.lfoRate[i]);
     }
 
     for (int i = 0; i < ModMatrix::kNumSlots; ++i) {
-        const juce::String n(i + 1);
-        auto& s = mp.slot[static_cast<size_t>(i)];
-        s.src = static_cast<int>(raw("mod" + n + "_src"));
-        s.dst = static_cast<int>(raw("mod" + n + "_dst"));
-        s.amt = raw("mod" + n + "_amt") * 0.01f;   // % -> -1..+1
-        s.uni = raw("mod" + n + "_uni") > 0.5f;
+        auto& sl = mp.slot[static_cast<size_t>(i)];
+        sl.src = static_cast<int>(rd(rp.modSrc[i]));
+        sl.dst = static_cast<int>(rd(rp.modDst[i]));
+        sl.amt = rd(rp.modAmt[i]) * 0.01f;   // % -> -1..+1
+        sl.uni = rd(rp.modUni[i]) > 0.5f;
     }
 
     // ホストのテンポ (取得できなければ 120)
     mp.bpm = 120.0;
-    if (auto* ph = getPlayHead())
+    if (auto* ph = const_cast<MultiOtoAudioProcessor*>(this)->getPlayHead())
         if (auto pos = ph->getPosition())
             if (auto bpm = pos->getBpm())
                 mp.bpm = *bpm;
@@ -210,6 +270,8 @@ void MultiOtoAudioProcessor::updateEnvFollow(const juce::AudioBuffer<float>& buf
 
 void MultiOtoAudioProcessor::releaseResources() {
     engineCore->reset();
+    modMatrix.reset();
+    envFollowState = 0.0f;
 }
 
 bool MultiOtoAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
@@ -228,78 +290,42 @@ void MultiOtoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
 
     EngineParams p;
 
-    int ottIdx = static_cast<int>(apvts.getRawParameterValue("total_ott")->load(std::memory_order_relaxed));
-    p.total_ott_count = 2 << ottIdx;
+    // --- パラメータ読み出し (すべてキャッシュ済みポインタ経由。文字列検索なし) ---
+    p.total_ott_count = 2 << static_cast<int>(rd(rp.totalOtt));
 
-    p.predrive_on = apvts.getRawParameterValue("predrive_on")->load(std::memory_order_relaxed) > 0.5f;
-    p.s1_on = apvts.getRawParameterValue("s1_on")->load(std::memory_order_relaxed) > 0.5f;
-    p.s2_on = apvts.getRawParameterValue("s2_on")->load(std::memory_order_relaxed) > 0.5f;
+    p.predrive_on = rd(rp.predriveOn) > 0.5f;
+    p.s1_on       = rd(rp.stageOn[0]) > 0.5f;
+    p.s2_on       = rd(rp.stageOn[1]) > 0.5f;
 
-    p.inGain = apvts.getRawParameterValue("in_gain")->load(std::memory_order_relaxed);
-    p.drive = apvts.getRawParameterValue("drive")->load(std::memory_order_relaxed);
-    p.odd = apvts.getRawParameterValue("odd_blend")->load(std::memory_order_relaxed);
-    p.even = apvts.getRawParameterValue("even_blend")->load(std::memory_order_relaxed);
-    p.xLow = apvts.getRawParameterValue("xover_low")->load(std::memory_order_relaxed);
-    p.xHigh = apvts.getRawParameterValue("xover_high")->load(std::memory_order_relaxed);
+    p.inGain = rd(rp.inGain);
+    p.drive  = rd(rp.drive);
+    p.odd    = rd(rp.odd);
+    p.even   = rd(rp.even);
 
     // Stage 2 の帯域分割は Stage 1 と完全に独立。
     // 2 段で異なる分割をぶつけることで、帯域の重なりから複雑な位相干渉が生まれる。
-    p.xLow2  = apvts.getRawParameterValue("s2_xover_low")->load(std::memory_order_relaxed);
-    p.xHigh2 = apvts.getRawParameterValue("s2_xover_high")->load(std::memory_order_relaxed);
+    p.xLow   = rd(rp.xLow[0]);   p.xHigh  = rd(rp.xHigh[0]);
+    p.xLow2  = rd(rp.xLow[1]);   p.xHigh2 = rd(rp.xHigh[1]);
 
-    p.s1_gain[0] = apvts.getRawParameterValue("s1_gain_l")->load(std::memory_order_relaxed);
-    p.s1_gain[1] = apvts.getRawParameterValue("s1_gain_m")->load(std::memory_order_relaxed);
-    p.s1_gain[2] = apvts.getRawParameterValue("s1_gain_h")->load(std::memory_order_relaxed);
-    p.s1_depth[0] = apvts.getRawParameterValue("s1_depth_l")->load(std::memory_order_relaxed);
-    p.s1_depth[1] = apvts.getRawParameterValue("s1_depth_m")->load(std::memory_order_relaxed);
-    p.s1_depth[2] = apvts.getRawParameterValue("s1_depth_h")->load(std::memory_order_relaxed);
+    for (int b = 0; b < 3; ++b) {
+        p.s1_gain[b]  = rd(rp.gain [0][b]);  p.s2_gain[b]  = rd(rp.gain [1][b]);
+        p.s1_depth[b] = rd(rp.depth[0][b]);  p.s2_depth[b] = rd(rp.depth[1][b]);
+        p.s1_up[b]    = rd(rp.up   [0][b]);  p.s2_up[b]    = rd(rp.up   [1][b]);
+        p.s1_down[b]  = rd(rp.down [0][b]);  p.s2_down[b]  = rd(rp.down [1][b]);
+        p.s1_atk[b]   = rd(rp.atk  [0][b]);  p.s2_atk[b]   = rd(rp.atk  [1][b]);
+        p.s1_rel[b]   = rd(rp.rel  [0][b]);  p.s2_rel[b]   = rd(rp.rel  [1][b]);
+    }
+    p.s1_time = rd(rp.time[0]);  p.s2_time = rd(rp.time[1]);
+    p.s1_mix  = rd(rp.mix[0]);   p.s2_mix  = rd(rp.mix[1]);
 
-    p.s1_up[0] = apvts.getRawParameterValue("s1_up_l")->load(std::memory_order_relaxed);
-    p.s1_up[1] = apvts.getRawParameterValue("s1_up_m")->load(std::memory_order_relaxed);
-    p.s1_up[2] = apvts.getRawParameterValue("s1_up_h")->load(std::memory_order_relaxed);
-    p.s1_down[0] = apvts.getRawParameterValue("s1_down_l")->load(std::memory_order_relaxed);
-    p.s1_down[1] = apvts.getRawParameterValue("s1_down_m")->load(std::memory_order_relaxed);
-    p.s1_down[2] = apvts.getRawParameterValue("s1_down_h")->load(std::memory_order_relaxed);
-
-    p.s1_time = apvts.getRawParameterValue("s1_time")->load(std::memory_order_relaxed);
-    p.s1_mix = apvts.getRawParameterValue("s1_mix")->load(std::memory_order_relaxed);
-    p.s1_atk[0] = apvts.getRawParameterValue("s1_atk_l")->load(std::memory_order_relaxed);
-    p.s1_atk[1] = apvts.getRawParameterValue("s1_atk_m")->load(std::memory_order_relaxed);
-    p.s1_atk[2] = apvts.getRawParameterValue("s1_atk_h")->load(std::memory_order_relaxed);
-    p.s1_rel[0] = apvts.getRawParameterValue("s1_rel_l")->load(std::memory_order_relaxed);
-    p.s1_rel[1] = apvts.getRawParameterValue("s1_rel_m")->load(std::memory_order_relaxed);
-    p.s1_rel[2] = apvts.getRawParameterValue("s1_rel_h")->load(std::memory_order_relaxed);
-
-    p.s2_gain[0] = apvts.getRawParameterValue("s2_gain_l")->load(std::memory_order_relaxed);
-    p.s2_gain[1] = apvts.getRawParameterValue("s2_gain_m")->load(std::memory_order_relaxed);
-    p.s2_gain[2] = apvts.getRawParameterValue("s2_gain_h")->load(std::memory_order_relaxed);
-    p.s2_depth[0] = apvts.getRawParameterValue("s2_depth_l")->load(std::memory_order_relaxed);
-    p.s2_depth[1] = apvts.getRawParameterValue("s2_depth_m")->load(std::memory_order_relaxed);
-    p.s2_depth[2] = apvts.getRawParameterValue("s2_depth_h")->load(std::memory_order_relaxed);
-
-    p.s2_up[0] = apvts.getRawParameterValue("s2_up_l")->load(std::memory_order_relaxed);
-    p.s2_up[1] = apvts.getRawParameterValue("s2_up_m")->load(std::memory_order_relaxed);
-    p.s2_up[2] = apvts.getRawParameterValue("s2_up_h")->load(std::memory_order_relaxed);
-    p.s2_down[0] = apvts.getRawParameterValue("s2_down_l")->load(std::memory_order_relaxed);
-    p.s2_down[1] = apvts.getRawParameterValue("s2_down_m")->load(std::memory_order_relaxed);
-    p.s2_down[2] = apvts.getRawParameterValue("s2_down_h")->load(std::memory_order_relaxed);
-    p.s2_time = apvts.getRawParameterValue("s2_time")->load(std::memory_order_relaxed);
-    p.s2_mix = apvts.getRawParameterValue("s2_mix")->load(std::memory_order_relaxed);
-    p.s2_atk[0] = apvts.getRawParameterValue("s2_atk_l")->load(std::memory_order_relaxed);
-    p.s2_atk[1] = apvts.getRawParameterValue("s2_atk_m")->load(std::memory_order_relaxed);
-    p.s2_atk[2] = apvts.getRawParameterValue("s2_atk_h")->load(std::memory_order_relaxed);
-    p.s2_rel[0] = apvts.getRawParameterValue("s2_rel_l")->load(std::memory_order_relaxed);
-    p.s2_rel[1] = apvts.getRawParameterValue("s2_rel_m")->load(std::memory_order_relaxed);
-    p.s2_rel[2] = apvts.getRawParameterValue("s2_rel_h")->load(std::memory_order_relaxed);
-
-    p.post_hpf = apvts.getRawParameterValue("post_hpf")->load(std::memory_order_relaxed);
-    p.post_lpf = apvts.getRawParameterValue("post_lpf")->load(std::memory_order_relaxed);
-    p.dryWet = apvts.getRawParameterValue("dry_wet")->load(std::memory_order_relaxed);
-    p.outGain = apvts.getRawParameterValue("out_gain")->load(std::memory_order_relaxed);
-    p.limitCeil = apvts.getRawParameterValue("limit_ceil")->load(std::memory_order_relaxed);
-    p.limitRelease = apvts.getRawParameterValue("limit_release")->load(std::memory_order_relaxed);
-    p.limitMode = static_cast<int>(apvts.getRawParameterValue("limit_mode")->load(std::memory_order_relaxed));
-    p.phase_mode = static_cast<int>(apvts.getRawParameterValue("phase_mode")->load(std::memory_order_relaxed));
+    p.post_hpf     = rd(rp.postHpf);
+    p.post_lpf     = rd(rp.postLpf);
+    p.dryWet       = rd(rp.dryWet);
+    p.outGain      = rd(rp.outGain);
+    p.limitCeil    = rd(rp.limitCeil);
+    p.limitRelease = rd(rp.limitRelease);
+    p.limitMode    = static_cast<int>(rd(rp.limitMode));
+    p.phase_mode   = static_cast<int>(rd(rp.phaseMode));
 
     // ======================================================================
     //  MOD 適用。パラメータのレンジ内へクランプしてから EngineCore へ渡す。

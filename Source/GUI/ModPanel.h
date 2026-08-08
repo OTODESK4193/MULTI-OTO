@@ -98,6 +98,8 @@ public:
         for (auto& c : lfoSyncRate) c.setLookAndFeel (nullptr);
         for (auto& c : slotSrc)     c.setLookAndFeel (nullptr);
         for (auto& c : slotDst)     c.setLookAndFeel (nullptr);
+        for (auto& s : lfoRate)     s.setLookAndFeel (nullptr);
+        for (auto& s : slotAmt)     s.setLookAndFeel (nullptr);
     }
 
     /** LFO のライブ値を読むためのソース。エディタから差し込む。 */
@@ -151,6 +153,7 @@ public:
 
             // ライブ値バー (中央 0 から左右に伸びる)
             auto b = lfoScope[sz].toFloat();
+            if (b.getWidth() < 8.0f || b.getHeight() < 4.0f) continue;   // resized() 前のガード
             g.setColour (MOColors::knobTrack);
             g.fillRoundedRectangle (b, 3.0f);
 
@@ -272,6 +275,10 @@ public:
 private:
     void timerCallback() override
     {
+        // SYNC はプリセット読込やホストのオートメーションでも変わるため、
+        // onClick 任せにせずここでも表示を突き合わせる。
+        updateSyncVisibility();
+
         if (matrix == nullptr) return;
 
         bool changed = false;
@@ -294,8 +301,10 @@ private:
         {
             const auto sz = static_cast<size_t> (i);
             const bool sync = lfoSync[sz].getToggleState();
-            lfoRate[sz].setVisible (! sync);
-            lfoSyncRate[sz].setVisible (sync);
+            if (lfoRate[sz].isVisible() == sync) {
+                lfoRate[sz].setVisible (! sync);
+                lfoSyncRate[sz].setVisible (sync);
+            }
         }
     }
 

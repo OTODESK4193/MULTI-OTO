@@ -52,6 +52,10 @@ private:
 //  ArcKnob — ロータリーノブ (+ 任意のラベル)
 // ============================================================================
 struct ArcKnob {
+    /** LookAndFeel は Editor が保持しており、破棄順の都合で先に消えることは
+        通常ないが、依存を残さないようデストラクタで明示的に切り離す。 */
+    ~ArcKnob() { slider.setLookAndFeel(nullptr); }
+
     juce::Slider slider;
     juce::Label  label;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;

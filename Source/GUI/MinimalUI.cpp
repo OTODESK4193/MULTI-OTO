@@ -71,7 +71,10 @@ void MultiOtoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int 
         g.strokePath(fill, juce::PathStrokeType(th, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
 
-    // --- MOD レンジ (アークの外側に一回り大きい帯として重ねる) ---
+    // --- MOD レンジ ---
+    // リングの外側に別の輪を足すと「浮いた」見た目になるので、
+    // 値アークと「同じリングの上」を塗り分ける方式にしている。
+    // 変調が届く範囲だけリングの色が変わり、その中を明るいマーカーが走る。
     double mLo, mHi, mCur;
     if (getModSpan(slider, mLo, mHi, mCur)) {
         auto toAngle = [&](double v) {
@@ -79,21 +82,20 @@ void MultiOtoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int 
             };
         const float aLo = toAngle(juce::jmin(mLo, mHi));
         const float aHi = toAngle(juce::jmax(mLo, mHi));
-        const float rr  = r + th * 0.72f;
 
-        if (aHi - aLo > 0.004f) {
-            juce::Path span; span.addCentredArc(cx, cy, rr, rr, 0.0f, aLo, aHi, true);
-            g.setColour(MOColors::mint.withAlpha(0.35f));
-            g.strokePath(span, juce::PathStrokeType(th * 0.42f,
+        if (aHi - aLo > 0.003f) {
+            juce::Path span; span.addCentredArc(cx, cy, r, r, 0.0f, aLo, aHi, true);
+            g.setColour(MOColors::mint.withAlpha(0.50f));
+            g.strokePath(span, juce::PathStrokeType(th,
                 juce::PathStrokeType::curved, juce::PathStrokeType::butt));
         }
 
-        // 現在の変調位置を示すドット
+        // 現在の変調位置 = リングを横切る短い線 (リングの一部として読める)
         const float aCur = toAngle(mCur);
-        const float dx = cx + std::sin(aCur) * rr;
-        const float dy = cy - std::cos(aCur) * rr;
-        g.setColour(MOColors::mint);
-        g.fillEllipse(dx - th * 0.26f, dy - th * 0.26f, th * 0.52f, th * 0.52f);
+        const float sn = std::sin(aCur), cs = std::cos(aCur);
+        g.setColour(MOColors::mint.brighter(0.4f));
+        g.drawLine(cx + sn * (r - th * 0.5f), cy - cs * (r - th * 0.5f),
+                   cx + sn * (r + th * 0.5f), cy - cs * (r + th * 0.5f), 2.4f);
     }
 
     // 中心キャップ
