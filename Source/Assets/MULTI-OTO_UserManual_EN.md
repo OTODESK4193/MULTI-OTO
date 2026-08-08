@@ -212,15 +212,21 @@ There are 30 destinations. Because that is far too many for one flat list, the D
 | S1 / S2 **Time** | ±2 octaves (1/4x to 4x) |
 | S1 / S2 **Low X / High X** | ±2 octaves |
 | S1 / S2 **Mix** | ±50 % |
-| Per-band **Gain** (6) | Always ±18 dB across the whole cascade |
+| Per-band **Gain** (6) | ±48 ÷ count dB per node (see below) |
 | Per-band **Atk / Rel** (12) | ±3 octaves (1/8x to 8x) |
 | **LFO 1-4 Rate** | ±15 Hz |
 
 Frequencies and times modulate **exponentially** rather than by addition. Adding ±500 Hz to 88 Hz would collapse the downward side; ±2 octaves swings symmetrically from 22 Hz to 352 Hz.
 
-**Band gain is the special case.** Gain is applied at every node, so its effect scales with the cascade count — ±3 dB at 128 nodes would be ±384 dB, permanently pinned against the safety clamp. The modulation depth is therefore divided by the node count, so the sweep is **always ±18 dB across the whole cascade** whatever count you choose.
+**Band gain is the special case.** Gain is applied at every node, so its effect scales with the cascade count — ±3 dB at 128 nodes would be ±384 dB, permanently pinned against the safety clamp. The modulation depth is therefore divided by the node count, so the per-node swing is `±48 ÷ count` dB. A stage owns half the chain, so that works out to **±24 dB within one stage** and **±48 dB across the whole chain** if you modulate the same band in both stages — the same totals whatever count you pick.
 
-The flip side is that the per-node swing at 128 nodes is only ±0.14 dB. Against a knob that spans ±24 dB, drawing that to scale would be less than one pixel wide. **Gain knobs therefore have a minimum display width of about 5 px** — you can always see that modulation is assigned, but for this destination alone the band width is not strictly proportional to the amount.
+That swings how hard the cascade is driven into compression, so the output level stays controlled while the density and pumping depth change dramatically.
+
+The flip side is that the per-node swing at 128 nodes is only ±0.38 dB. Against a knob that spans ±24 dB, drawing that to scale would be less than one pixel wide. **The band therefore has a minimum display width of about 10 px** — you can always see that modulation is assigned, though while that minimum is in effect the width is not strictly proportional to the amount.
+
+A small modulation also puts the live marker almost on top of the knob's own handle. The marker is drawn after the handle with a background-coloured outline, so it stays visible even when the two overlap. While the minimum width is in effect the marker is mapped onto the *displayed* band, otherwise it would not move by even a pixel and would look frozen.
+
+**The meters show it too.** Modulating a band gain overlays a faint green region on that band in the DYNAMICS METER — the range the gain can sweep — with the live bar moving inside it. It runs through the same `applyModToValue()` as the knobs, so the scaling matches.
 
 **Modulating one LFO's rate from another** is the heart of this matrix — the period itself stretches and contracts, breaking out of simple repetition. An LFO can even modulate its own rate (it resolves safely with one block of delay).
 

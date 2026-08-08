@@ -339,11 +339,14 @@ private:
         for (int i = 0; i < ModMatrix::kNumLfos; ++i)
         {
             const auto sz = static_cast<size_t> (i);
+            // 【注意】ここで「変化するときだけ setVisible する」という最適化を
+            // 入れてはいけない。生成直後は両方が addAndMakeVisible 済みで
+            // 「RATE は正しいが SyncRate も見えている」という中間状態にあり、
+            // 片方だけを見て判定すると初回に修正されず重なって表示される。
+            // Component::setVisible は変化がなければ何もしないので毎回呼んでよい。
             const bool sync = lfoSync[sz].getToggleState();
-            if (lfoRate[sz].isVisible() == sync) {
-                lfoRate[sz].setVisible (! sync);
-                lfoSyncRate[sz].setVisible (sync);
-            }
+            lfoRate[sz].setVisible (! sync);
+            lfoSyncRate[sz].setVisible (sync);
         }
     }
 

@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <atomic>
 #include "ColorPalette.h"
+#include "DSP/ModMatrix.h"
 
 struct StageMeter;
 
@@ -25,6 +26,9 @@ public:
     ~DynVisualComponent() override { stopTimer(); }
 
     void setMeter (const StageMeter* m) { meter = m; }
+
+    /** 帯域ゲインの変調レンジをメーター上に重ねるために使う */
+    void setModMatrix (const ModMatrix* m) { matrix = m; }
     void setTitle (const juce::String& t) { title = t; }
     void setSelected (bool sel) { isSelected = sel; repaint(); }
     bool getSelected() const { return isSelected; }
@@ -71,6 +75,7 @@ private:
     int stage = 1;
     bool isSelected = false;
     const StageMeter* meter = nullptr;
+    const ModMatrix*  matrix = nullptr;
 
     juce::String title { "STAGE 1" };
 

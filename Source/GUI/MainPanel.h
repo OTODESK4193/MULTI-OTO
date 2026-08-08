@@ -183,6 +183,8 @@ public:
     void setModMatrix (const ModMatrix* m)
     {
         matrix = m;
+        dynS1.setModMatrix (m);
+        dynS2.setModMatrix (m);
         if (matrix != nullptr) startTimerHz (24);
     }
 

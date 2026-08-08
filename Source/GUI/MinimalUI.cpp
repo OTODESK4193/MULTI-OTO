@@ -71,22 +71,25 @@ void MultiOtoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int 
         g.strokePath(fill, juce::PathStrokeType(th, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
 
-    // --- MOD レンジ ---
+    // --- MOD レンジ (帯) ---
     // リングの外側に別の輪を足すと「浮いた」見た目になるので、
     // 値アークと「同じリングの上」を塗り分ける方式にしている。
-    // 変調が届く範囲だけリングの色が変わり、その中を明るいマーカーが走る。
     double mLo, mHi, mCur;
-    if (getModSpan(slider, mLo, mHi, mCur)) {
+    const bool hasMod = getModSpan(slider, mLo, mHi, mCur);
+    float aModCur = 0.0f;
+
+    if (hasMod) {
         auto toAngle = [&](double v) {
             return startAngle + (float)slider.valueToProportionOfLength(v) * (endAngle - startAngle);
             };
         float aLo = toAngle(juce::jmin(mLo, mHi));
         float aHi = toAngle(juce::jmax(mLo, mHi));
+        aModCur = toAngle(mCur);
 
         // 帯域ゲインのように「段数で割った結果、1 段あたりの振れ幅が極小」に
         // なる行き先では、比例のまま描くと 1px 未満になって何も見えない。
-        // 変調が掛かっていること自体は必ず分かるよう、最小 5px 相当を確保する。
-        const float minSpan = 5.0f / juce::jmax(8.0f, r);
+        // 変調が掛かっていること自体は必ず分かるよう、最小 10px 相当を確保する。
+        const float minSpan = 10.0f / juce::jmax(8.0f, r);
         if (aHi - aLo < minSpan) {
             const float mid = (aLo + aHi) * 0.5f;
             aLo = mid - minSpan * 0.5f;
@@ -95,21 +98,17 @@ void MultiOtoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int 
             if (aLo < startAngle) { aHi += startAngle - aLo; aLo = startAngle; }
             if (aHi > endAngle)   { aLo -= aHi - endAngle;   aHi = endAngle;   }
             aLo = juce::jmax(aLo, startAngle);
+
+            // 帯を広げた分、マーカーも「表示上の帯の中での位置」に読み替える。
+            // 真の角度のままだと 1px 未満しか動かず、止まって見えてしまう。
+            const double t = (mHi > mLo) ? juce::jlimit(0.0, 1.0, (mCur - mLo) / (mHi - mLo)) : 0.5;
+            aModCur = aLo + static_cast<float>(t) * (aHi - aLo);
         }
 
-        {
-            juce::Path span; span.addCentredArc(cx, cy, r, r, 0.0f, aLo, aHi, true);
-            g.setColour(MOColors::mint.withAlpha(0.50f));
-            g.strokePath(span, juce::PathStrokeType(th,
-                juce::PathStrokeType::curved, juce::PathStrokeType::butt));
-        }
-
-        // 現在の変調位置 = リングを横切る短い線 (リングの一部として読める)
-        const float aCur = toAngle(mCur);
-        const float sn = std::sin(aCur), cs = std::cos(aCur);
-        g.setColour(MOColors::mint.brighter(0.4f));
-        g.drawLine(cx + sn * (r - th * 0.5f), cy - cs * (r - th * 0.5f),
-                   cx + sn * (r + th * 0.5f), cy - cs * (r + th * 0.5f), 2.4f);
+        juce::Path span; span.addCentredArc(cx, cy, r, r, 0.0f, aLo, aHi, true);
+        g.setColour(MOColors::mint.withAlpha(0.62f));
+        g.strokePath(span, juce::PathStrokeType(th,
+            juce::PathStrokeType::curved, juce::PathStrokeType::butt));
     }
 
     // 中心キャップ
@@ -122,6 +121,25 @@ void MultiOtoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int 
     const float hy = cy - std::cos(angle) * r;
     g.setColour(MOColors::text);
     g.fillEllipse(hx - th * 0.30f, hy - th * 0.30f, th * 0.60f, th * 0.60f);
+
+    // --- MOD の現在位置マーカー ---
+    // 【重要】必ずハンドルより後に描くこと。
+    // 帯域ゲインのように変調量が小さい行き先では、マーカーがハンドルと
+    // ほぼ同じ位置に来る。先に描くと白いハンドル (約 4.4px) に完全に隠れ、
+    // 「変調が効いていない」ように見えてしまう。
+    // リングより少しはみ出させ、背景色の縁取りでコントラストも確保する。
+    if (hasMod) {
+        const float sn = std::sin(aModCur), cs = std::cos(aModCur);
+        const float rIn  = r - th * 0.78f;
+        const float rOut = r + th * 0.78f;
+        const float x1 = cx + sn * rIn,  y1 = cy - cs * rIn;
+        const float x2 = cx + sn * rOut, y2 = cy - cs * rOut;
+
+        g.setColour(MOColors::bg);
+        g.drawLine(x1, y1, x2, y2, 5.0f);
+        g.setColour(MOColors::mint.brighter(0.7f));
+        g.drawLine(x1, y1, x2, y2, 2.6f);
+    }
 
     // 中心に数値。桁数が多いときだけ字を詰めて、短い値はできるだけ大きく出す。
     const juce::String txt = formatValue(slider.getValue());
@@ -162,12 +180,12 @@ void MultiOtoLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
         float xb = toX(juce::jmax(mLo, mHi));
 
         // ノブ側と同じ理由で最小表示幅を確保する
-        if (xb - xa < 4.0f) {
+        if (xb - xa < 6.0f) {
             const float mid = (xa + xb) * 0.5f;
-            xa = juce::jmax(b.getX(), mid - 2.0f);
-            xb = juce::jmin(b.getRight(), xa + 4.0f);
+            xa = juce::jmax(b.getX(), mid - 3.0f);
+            xb = juce::jmin(b.getRight(), xa + 6.0f);
         }
-        g.setColour(MOColors::mint.withAlpha(0.28f));
+        g.setColour(MOColors::mint.withAlpha(0.34f));
         g.fillRoundedRectangle(xa, b.getY(), juce::jmax(1.0f, xb - xa), b.getHeight(), 3.0f);
         const float xc = toX(mCur);
         g.setColour(MOColors::mint);

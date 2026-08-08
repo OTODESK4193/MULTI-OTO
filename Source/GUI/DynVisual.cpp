@@ -353,6 +353,39 @@ void DynVisualComponent::paint (juce::Graphics& g)
         g.setColour (MOColors::grid.withAlpha (0.20f));
         g.drawHorizontalLine ((int) midY, (float) bx + 2, (float) (bx + bw - 2));
 
+        // --- 帯域ゲインの MOD レンジ ---
+        // メーターのバーは「実際に掛かっているゲイン」を出しているので、
+        // そこに「どこまで振れるか」を薄い帯で重ねる。
+        // ノブ側と同じく applyModToValue を通すので倍率は必ず一致する。
+        if (matrix != nullptr && paramGain[b] != nullptr)
+        {
+            const int dst = (stage == 1 ? ModMatrix::DstS1GainL : ModMatrix::DstS2GainL) + b;
+            const float rLo = matrix->getRangeMinForGui (dst);
+            const float rHi = matrix->getRangeMaxForGui (dst);
+
+            if (rHi - rLo > 1.0e-4f)
+            {
+                const double base = paramGain[b]->convertFrom0to1 (paramGain[b]->getValue());
+                const double dLo  = matrix->applyModToValue (dst, base, rLo) - base;
+                const double dHi  = matrix->applyModToValue (dst, base, rHi) - base;
+                const double dCur = matrix->applyModToValue (dst, base, matrix->getForGui (dst)) - base;
+
+                // 現在のバー位置から変調分を差し引いた「素の位置」を基準にする
+                const float baseDb = smoothGainDb[b] - (float) dCur;
+                const float y0 = midY - gainToNorm (baseDb + (float) dHi) * (bandH * 0.42f);
+                const float y1 = midY - gainToNorm (baseDb + (float) dLo) * (bandH * 0.42f);
+
+                float top = juce::jmin (y0, y1), bot = juce::jmax (y0, y1);
+                if (bot - top < 4.0f) { const float m = (top + bot) * 0.5f; top = m - 2.0f; bot = m + 2.0f; }
+
+                g.setColour (MOColors::mint.withAlpha (0.22f));
+                g.fillRoundedRectangle ((float) bx + 4.0f, top, (float) bw - 8.0f, bot - top, 2.0f);
+                g.setColour (MOColors::mint.withAlpha (0.55f));
+                g.drawHorizontalLine ((int) top, (float) bx + 4.0f, (float) (bx + bw - 4));
+                g.drawHorizontalLine ((int) bot, (float) bx + 4.0f, (float) (bx + bw - 4));
+            }
+        }
+
         // ゲイン変化バー
         const float gainNorm = gainToNorm (smoothGainDb[b]);
 
