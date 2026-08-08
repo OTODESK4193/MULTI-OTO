@@ -19,7 +19,7 @@ It is not a mixing or mastering utility — it is a **sound design tool**. Up to
 
 Built for Color Bass, Riddim and Neurofunk: extracting microscopic texture, generating infinite spectral sweeps, and producing phase-dispersion glitch effects that ordinary dynamics processors cannot reach.
 
-👉 **[Demo video on X (動作デモ動画)](https://x.com/kijyoumusic/status/2055442936884826283?s=20)**
+👉 **[Demo video on X (動作デモ動画)](https://x.com/kijyoumusic/status/2086085714962485738?s=20)**
 
 ## Key Features
 
