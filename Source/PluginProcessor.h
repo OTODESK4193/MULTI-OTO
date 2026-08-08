@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "DSP/ModMatrix.h"
 #include <memory>
 
 class EngineCore;
@@ -38,6 +39,9 @@ public:
     /** GUI がメーター値を読み取るためのアクセサ */
     EngineCore* getEngineCore() const { return engineCore.get(); }
 
+    /** GUI が LFO の現在値を読むためのアクセサ (ロックフリー) */
+    const ModMatrix& getModMatrix() const { return modMatrix; }
+
     // ======================================================================
     //  プリセット
     //  ・FACTORY はバイナリ内蔵 (PresetData.h)。ディスクには書き出さない。
@@ -67,6 +71,14 @@ public:
 private:
     std::unique_ptr<EngineCore> engineCore;
     double currentSampleRate = 0.0; // Ableton Live Fail-safe
+
+    ModMatrix modMatrix;
+    float envFollowState = 0.0f;
+
+    /** APVTS から MOD の設定を読み出す */
+    ModMatrix::Params readModParams();
+    /** 入力レベルを検出して ENV FOLLOW ソースへ渡す */
+    void updateEnvFollow(const juce::AudioBuffer<float>& buffer);
 
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 

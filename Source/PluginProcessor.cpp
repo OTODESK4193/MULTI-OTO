@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "DSP/EngineCore.h"
+#include "DSP/ModMatrix.h"
 #include "Presets/PresetData.h"
 #include "GUI/ColorPalette.h"
 
@@ -95,6 +96,35 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::crea
     juce::StringArray phaseChoices = { "COLOR PHASE", "ALIGN PHASE" };
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("phase_mode", 1), "Phase Mode", phaseChoices, 0));
 
+    // ======================================================================
+    //  MOD MATRIX
+    // ======================================================================
+    auto addChoice = [&](const juce::String& id, const juce::String& name,
+                         const juce::StringArray& items, int def) {
+        layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID(id, 1), name, items, def));
+        };
+
+    for (int i = 1; i <= ModMatrix::kNumLfos; ++i) {
+        const juce::String n(i);
+        addChoice("lfo" + n + "_wave", "LFO " + n + " Wave", ModMatrix::getWaveNames(), 0);
+        addBool  ("lfo" + n + "_sync", "LFO " + n + " Sync", false);
+        addChoice("lfo" + n + "_syncrate", "LFO " + n + " Sync Rate", ModMatrix::getSyncRateNames(), 6);
+
+        // 0.01Hz (100秒) 〜 30Hz。低速側を細かく触れるよう強くスキューする
+        auto r = juce::NormalisableRange<float>(0.01f, 30.0f, 0.01f);
+        r.setSkewForCentre(1.0f);
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID("lfo" + n + "_rate", 1), "LFO " + n + " Rate", r, 1.0f));
+    }
+
+    for (int i = 1; i <= ModMatrix::kNumSlots; ++i) {
+        const juce::String n(i);
+        addChoice("mod" + n + "_src", "MOD " + n + " Source", ModMatrix::getSourceNames(), 0);
+        addChoice("mod" + n + "_dst", "MOD " + n + " Dest",   ModMatrix::getDestNames(),   0);
+        addFloat ("mod" + n + "_amt", "MOD " + n + " Amount", -100.0f, 100.0f, 0.0f);
+        addBool  ("mod" + n + "_uni", "MOD " + n + " Unipolar", false);
+    }
+
     return layout;
 }
 
@@ -110,7 +140,72 @@ MultiOtoAudioProcessor::MultiOtoAudioProcessor()
 MultiOtoAudioProcessor::~MultiOtoAudioProcessor() = default;
 
 void MultiOtoAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
+    currentSampleRate = sampleRate;
     engineCore->prepare(sampleRate, samplesPerBlock);
+    modMatrix.prepare(sampleRate);
+    envFollowState = 0.0f;
+}
+
+// ============================================================================
+//  MOD MATRIX
+// ============================================================================
+ModMatrix::Params MultiOtoAudioProcessor::readModParams() {
+    ModMatrix::Params mp;
+
+    auto raw = [this](const juce::String& id) {
+        auto* v = apvts.getRawParameterValue(id);
+        return (v != nullptr) ? v->load(std::memory_order_relaxed) : 0.0f;
+        };
+
+    for (int i = 0; i < ModMatrix::kNumLfos; ++i) {
+        const juce::String n(i + 1);
+        auto& l = mp.lfo[static_cast<size_t>(i)];
+        l.wave     = static_cast<int>(raw("lfo" + n + "_wave"));
+        l.sync     = raw("lfo" + n + "_sync") > 0.5f;
+        l.rateSync = static_cast<int>(raw("lfo" + n + "_syncrate"));
+        l.rateHz   = raw("lfo" + n + "_rate");
+    }
+
+    for (int i = 0; i < ModMatrix::kNumSlots; ++i) {
+        const juce::String n(i + 1);
+        auto& s = mp.slot[static_cast<size_t>(i)];
+        s.src = static_cast<int>(raw("mod" + n + "_src"));
+        s.dst = static_cast<int>(raw("mod" + n + "_dst"));
+        s.amt = raw("mod" + n + "_amt") * 0.01f;   // % -> -1..+1
+        s.uni = raw("mod" + n + "_uni") > 0.5f;
+    }
+
+    // ホストのテンポ (取得できなければ 120)
+    mp.bpm = 120.0;
+    if (auto* ph = getPlayHead())
+        if (auto pos = ph->getPosition())
+            if (auto bpm = pos->getBpm())
+                mp.bpm = *bpm;
+
+    return mp;
+}
+
+void MultiOtoAudioProcessor::updateEnvFollow(const juce::AudioBuffer<float>& buffer) {
+    const int n = buffer.getNumSamples();
+    const int ch = juce::jmin(2, buffer.getNumChannels());
+    if (n <= 0 || ch <= 0) return;
+
+    double sum = 0.0;
+    for (int c = 0; c < ch; ++c) {
+        const float* d = buffer.getReadPointer(c);
+        for (int i = 0; i < n; ++i) sum += static_cast<double>(d[i]) * d[i];
+    }
+
+    const float rms = static_cast<float>(std::sqrt(sum / (n * ch)));
+    const float db  = 20.0f * std::log10(juce::jmax(rms, 1.0e-6f));
+    const float norm = juce::jlimit(0.0f, 1.0f, (db + 60.0f) / 60.0f);   // -60dB..0dB -> 0..1
+
+    // ブロックレートで約 30ms の一次遅れ。カクつきを均す。
+    const float blockSec = static_cast<float>(n / juce::jmax(1.0, currentSampleRate));
+    const float coef = 1.0f - std::exp(-blockSec / 0.030f);
+    envFollowState += juce::jlimit(0.0f, 1.0f, coef) * (norm - envFollowState);
+
+    modMatrix.setEnvFollow(envFollowState);
 }
 
 void MultiOtoAudioProcessor::releaseResources() {
@@ -126,6 +221,10 @@ bool MultiOtoAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) 
 void MultiOtoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) {
     if (buffer.getNumSamples() == 0) return;
     juce::ScopedNoDenormals noDenormals;
+
+    // MOD は「処理前の入力」を見て動く。EngineCore を通す前に更新すること。
+    updateEnvFollow(buffer);
+    modMatrix.processBlock(buffer.getNumSamples(), readModParams());
 
     EngineParams p;
 
@@ -201,6 +300,34 @@ void MultiOtoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.limitRelease = apvts.getRawParameterValue("limit_release")->load(std::memory_order_relaxed);
     p.limitMode = static_cast<int>(apvts.getRawParameterValue("limit_mode")->load(std::memory_order_relaxed));
     p.phase_mode = static_cast<int>(apvts.getRawParameterValue("phase_mode")->load(std::memory_order_relaxed));
+
+    // ======================================================================
+    //  MOD 適用。パラメータのレンジ内へクランプしてから EngineCore へ渡す。
+    //  (ベース値自体は書き換えないので、ノブの表示は動かない = 一般的な作法)
+    // ======================================================================
+    auto mod = [this](int dst, float base, float lo, float hi) {
+        const float m = modMatrix.get(dst);
+        if (std::abs(m) < 1.0e-5f) return base;
+        return juce::jlimit(lo, hi,
+            static_cast<float>(ModMatrix::applyModToValue(dst, base, m)));
+        };
+
+    p.s1_time = mod(ModMatrix::DstS1Time, p.s1_time, 10.0f, 1000.0f);
+    p.s2_time = mod(ModMatrix::DstS2Time, p.s2_time, 10.0f, 1000.0f);
+    p.s1_mix  = mod(ModMatrix::DstS1Mix,  p.s1_mix,  0.0f, 100.0f);
+    p.s2_mix  = mod(ModMatrix::DstS2Mix,  p.s2_mix,  0.0f, 100.0f);
+
+    p.xLow   = mod(ModMatrix::DstS1XLow,  p.xLow,   20.0f, 1000.0f);
+    p.xHigh  = mod(ModMatrix::DstS1XHigh, p.xHigh,  1000.0f, 20000.0f);
+    p.xLow2  = mod(ModMatrix::DstS2XLow,  p.xLow2,  20.0f, 1000.0f);
+    p.xHigh2 = mod(ModMatrix::DstS2XHigh, p.xHigh2, 1000.0f, 20000.0f);
+
+    for (int b = 0; b < 3; ++b) {
+        p.s1_atk[b] = mod(ModMatrix::DstS1AtkL + b, p.s1_atk[b], 0.1f, 100.0f);
+        p.s1_rel[b] = mod(ModMatrix::DstS1RelL + b, p.s1_rel[b], 1.0f, 1000.0f);
+        p.s2_atk[b] = mod(ModMatrix::DstS2AtkL + b, p.s2_atk[b], 0.1f, 100.0f);
+        p.s2_rel[b] = mod(ModMatrix::DstS2RelL + b, p.s2_rel[b], 1.0f, 1000.0f);
+    }
 
     engineCore->updateParameters(p);
     engineCore->process(buffer);

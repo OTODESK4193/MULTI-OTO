@@ -16,20 +16,24 @@ public:
     {
         presetBtn.setButtonText ("PRESET");
         configBtn.setButtonText ("CONFIG");
+        modBtn.setButtonText ("MOD");
         presetBtn.onClick = [this] { if (onPresetClicked) onPresetClicked(); };
         configBtn.onClick = [this] { if (onConfigClicked) onConfigClicked(); };
+        modBtn.onClick    = [this] { if (onModClicked)    onModClicked(); };
         addAndMakeVisible (presetBtn);
         addAndMakeVisible (configBtn);
+        addAndMakeVisible (modBtn);
         applyTheme();
     }
 
     std::function<void()> onPresetClicked;
     std::function<void()> onConfigClicked;
+    std::function<void()> onModClicked;
 
     /** カラーテーマ切替時に色を貼り直す */
     void applyTheme()
     {
-        for (auto* b : { &presetBtn, &configBtn })
+        for (auto* b : { &presetBtn, &configBtn, &modBtn })
         {
             b->setColour (juce::TextButton::buttonColourId,   MOColors::knobTrack);
             b->setColour (juce::TextButton::buttonOnColourId, MOColors::accent);
@@ -68,7 +72,7 @@ public:
         {
             g.setFont (juce::Font (juce::FontOptions (12.5f, juce::Font::bold)));
             g.setColour (MOColors::babyBlue);
-            g.drawText (presetName, configBtn.getX() - 212, 0, 204, getHeight(),
+            g.drawText (presetName, modBtn.getX() - 212, 0, 204, getHeight(),
                         juce::Justification::centredRight, true);
         }
 
@@ -85,10 +89,11 @@ public:
         auto r = getLocalBounds();
         presetBtn.setBounds (r.removeFromRight (94).withSizeKeepingCentre (86, 24));
         configBtn.setBounds (r.removeFromRight (90).withSizeKeepingCentre (82, 24));
+        modBtn.setBounds    (r.removeFromRight (70).withSizeKeepingCentre (62, 24));
     }
 
 private:
-    juce::TextButton presetBtn, configBtn;
+    juce::TextButton presetBtn, configBtn, modBtn;
     juce::String presetName;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TabHeader)

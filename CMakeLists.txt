@@ -56,6 +56,7 @@ target_sources(MultiOto PRIVATE
     Source/GUI/MainPanel.h
     Source/GUI/PresetBrowser.h
     Source/GUI/ConfigPanel.h
+    Source/GUI/ModPanel.h
 
     # プリセット
     Source/Presets/PresetData.h
@@ -68,6 +69,7 @@ target_sources(MultiOto PRIVATE
     Source/DSP/DynamicsNode.h
     Source/DSP/FastMath.h
     Source/DSP/ADAASaturator.h
+    Source/DSP/ModMatrix.h
 )
 
 # ============================================================================

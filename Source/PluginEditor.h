@@ -5,6 +5,7 @@
 #include "GUI/MainPanel.h"
 #include "GUI/PresetBrowser.h"
 #include "GUI/ConfigPanel.h"
+#include "GUI/ModPanel.h"
 
 // ============================================================================
 //  ContentComponent パターン
@@ -50,6 +51,7 @@ private:
         MainPanel mainPanel;
         PresetBrowser presetBrowser;
         ConfigPanel configPanel;
+        ModPanel modPanel;
     } content;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MultiOtoAudioProcessorEditor)

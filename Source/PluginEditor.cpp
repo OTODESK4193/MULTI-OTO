@@ -11,25 +11,35 @@ MultiOtoAudioProcessorEditor::ContentComponent::ContentComponent (
     : processor (proc),
       lookAndFeelRef (laf),
       mainPanel (proc.apvts, laf),
-      configPanel (proc.apvts, laf)
+      configPanel (proc.apvts, laf),
+      modPanel (proc.apvts, laf)
 {
     addAndMakeVisible (header);
     addAndMakeVisible (mainPanel);
 
     presetBrowser.setVisible (false);
     configPanel.setVisible (false);
+    modPanel.setVisible (false);
     addChildComponent (presetBrowser);
     addChildComponent (configPanel);
+    addChildComponent (modPanel);
+
+    modPanel.setModMatrix (&proc.getModMatrix());
 
     mainPanel.bindApvts (proc.apvts);
 
+    // オーバーレイは常にどれか 1 つだけを表示する
     header.onPresetClicked = [this] {
-        configPanel.setVisible (false);
+        configPanel.setVisible (false); modPanel.setVisible (false);
         presetBrowser.setVisible (! presetBrowser.isVisible());
     };
     header.onConfigClicked = [this] {
-        presetBrowser.setVisible (false);
+        presetBrowser.setVisible (false); modPanel.setVisible (false);
         configPanel.setVisible (! configPanel.isVisible());
+    };
+    header.onModClicked = [this] {
+        presetBrowser.setVisible (false); configPanel.setVisible (false);
+        modPanel.setVisible (! modPanel.isVisible());
     };
 
     configPanel.onThemeChanged = [this] { applyThemeFromParam(); };
@@ -69,6 +79,7 @@ void MultiOtoAudioProcessorEditor::ContentComponent::applyThemeFromParam()
     header.applyTheme();
     mainPanel.applyTheme();
     configPanel.applyTheme();
+    modPanel.applyTheme();
 
     repaint();
 }
@@ -227,6 +238,7 @@ void MultiOtoAudioProcessorEditor::ContentComponent::resized()
     // オーバーレイはヘッダーを除いた全面
     presetBrowser.setBounds (getLocalBounds().withTrimmedTop (32));
     configPanel.setBounds   (getLocalBounds().withTrimmedTop (32));
+    modPanel.setBounds      (getLocalBounds().withTrimmedTop (32));
 }
 
 void MultiOtoAudioProcessorEditor::ContentComponent::connectMeters()

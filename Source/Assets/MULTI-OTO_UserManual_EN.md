@@ -38,6 +38,7 @@ Input
 
 | Control | Description |
 |---|---|
+| **MOD** | LFO modulation matrix |
 | **CONFIG** | Colour theme and limiter settings |
 | **PRESET** | Preset browser |
 
@@ -134,9 +135,9 @@ At 100 % wet the two modes are identical.
 
 ### COLOR THEME
 
-Six GUI colour schemes. No effect on audio.
+Ten GUI colour schemes. No effect on audio. Themes change not just the background but **the knob accents and meter band colours as well**.
 
-`Midnight` / `Sakura` / `Ocean` / `Forest` / `Sunset` / `Mono`
+`Midnight` / `Sakura` / `Ocean` / `Forest` / `Sunset` / `Mono` / `Neon` / `Amber` / `Ice` / `Vapor`
 
 Mono also converts the band colours to greyscale. Your theme choice is never overwritten by presets.
 
@@ -153,7 +154,68 @@ In both modes the output **never exceeds CEILING**. Cascaded upward compression 
 
 ---
 
-## 6. PRESETS
+## 6. MOD MATRIX
+
+Open it from the **MOD** button in the header. This drives MULTI-OTO's own parameters from LFOs and the input level.
+
+### Sources
+
+| Source | Description |
+|---|---|
+| **LFO 1-4** | Independent low-frequency oscillators. Bipolar (-1 to +1) |
+| **Env Follow** | The **input level itself**. Unipolar (0 to 1). Lets the bands move only while something is playing |
+| **Random** | A free-running sample & hold that jumps about 8 times a second, unrelated to the LFOs. Bipolar |
+
+MULTI-OTO is an effect and receives no MIDI notes, so **Env Follow** takes the place of Velocity and Note.
+
+### LFO
+
+| Item | Description |
+|---|---|
+| **Wave** | Sine / Triangle / Saw / Square / S&H / Chaos / **Rnd Trig** |
+| **SYNC** | On locks to host tempo, off uses Hz |
+| **RATE** | 0.01-30 Hz (0.01 Hz is roughly a 100 second cycle), skewed so slow rates are easy to dial |
+| **Sync rate** | 1/1 to 1/32, 13 divisions including dotted and triplet |
+
+**Chaos** layers the fundamental with a frequency √2 times higher — an irrational ratio, so the shape never repeats.
+
+**Rnd Trig** only updates its value on **50 % of cycles**. The period stays constant but whether it moves does not, which stalls and stutters like a glitching step sequencer. This is the most powerful wave for artifact work.
+
+The bar on the right shows each LFO's live value — centre is zero, left and right are ±.
+
+### Matrix (8 slots)
+
+Each slot links `SOURCE → DESTINATION` by `AMOUNT` (-100 to +100 %).
+
+- **POL (UNI)** — off swings both ways (− to +), on swings one way only (0 to +). Use off to wobble around the base value, on to push it in a single direction.
+- Assigning several slots to the same destination **sums** them.
+
+### Destinations
+
+| Destination | Modulation depth |
+|---|---|
+| S1 / S2 **Time** | ±2 octaves (1/4x to 4x) |
+| S1 / S2 **Low X / High X** | ±2 octaves |
+| S1 / S2 **Mix** | ±50 % |
+| Per-band **Atk / Rel** (12) | ±3 octaves (1/8x to 8x) |
+| **LFO 1-4 Rate** | ±15 Hz |
+
+Frequencies and times modulate **exponentially** rather than by addition. Adding ±500 Hz to 88 Hz would collapse the downward side; ±2 octaves swings symmetrically from 22 Hz to 352 Hz.
+
+**Modulating one LFO's rate from another** is the heart of this matrix — the period itself stretches and contracts, breaking out of simple repetition. An LFO can even modulate its own rate (it resolves safely with one block of delay).
+
+Modulation is computed at block rate and knob positions do not move. The base value is left alone and the offset is applied on the way into the DSP.
+
+### Starting points
+
+- **LFO1 (Sine, 1/4 sync) → S1 Low X, 40 %** — the low split point rides the beat and the bass centre of gravity sways.
+- **LFO2 (Rnd Trig, 1/16 sync) → S1 Rel Hi, 80 %** — the high band's release stretches irregularly and the tail stumbles.
+- **Env Follow → S2 Mix, UNI on, 60 %** — stage 2 only bites while the signal is loud.
+- **LFO3 (Saw, 0.05 Hz) → LFO1 Rate, 50 %** — LFO1 accelerates over 20 seconds.
+
+---
+
+## 7. PRESETS
 
 ### Browser
 
@@ -185,7 +247,7 @@ Loading a preset also switches **OTT COUNT** to its recommended value — the `(
 
 ---
 
-## 7. Recipes
+## 8. Recipes
 
 ### A. Conventional use (mix support)
 
@@ -215,7 +277,7 @@ Push LOW X and HIGH X close together (for example 400 Hz / 1.1 kHz) so the narro
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 **No sound, or silence after a loud passage**
 v1.0.0 had a bug where internal state could be corrupted after clipping and never recover. **Fixed in v1.1.0.** If it still happens, switching OTT COUNT resets all node states.
@@ -231,7 +293,7 @@ Untested. Windows and AVX2 are required.
 
 ---
 
-## 9. Requirements
+## 10. Requirements
 
 - **OS**: Windows 10 / 11 (64-bit)
 - **CPU**: AVX2 required (Intel Haswell 2013+ / AMD Excavator 2015+)
@@ -240,7 +302,7 @@ Untested. Windows and AVX2 are required.
 
 ---
 
-## 10. Disclaimer
+## 11. Disclaimer
 
 This software is provided "as is", without warranty of any kind. Cascading 128 multiband compressors can produce extreme output levels depending on your settings. CEILING is always active, but **place a limiter after MULTI-OTO** and keep an eye on your monitoring volume.
 
