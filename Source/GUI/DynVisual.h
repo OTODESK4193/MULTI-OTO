@@ -9,8 +9,13 @@ struct StageMeter;
 // ============================================================================
 //  DynVisualComponent
 //  3-BAND OTT リアルタイム可視化 (LOW/MID/HIGH 帯域別カラー)
-//  ＋ タイトル部が選択ボタンとして動作 (onStageSelected)
-//  ＋ Upward / Downward 設定シェードガイド ＆ マウス直感操作
+//
+//  マウス操作:
+//    ・バンド上半分を上下ドラッグ  → UPWARD
+//    ・バンド下半分を上下ドラッグ  → DOWNWARD
+//    ・Shift / Alt + ドラッグ      → BAND GAIN
+//    ・ダブルクリック              → GAIN を 0 dB へ
+//    ・バンド境界を左右ドラッグ    → クロスオーバー周波数 (↔ カーソル)
 // ============================================================================
 class DynVisualComponent : public juce::Component,
                            private juce::Timer
@@ -24,11 +29,8 @@ public:
     void setSelected (bool sel) { isSelected = sel; repaint(); }
     bool getSelected() const { return isSelected; }
 
-    void setCrossoverFreqs (std::atomic<float>* lo, std::atomic<float>* hi)
-    {
-        xoverLo = lo;
-        xoverHi = hi;
-    }
+    /** LINK X が ON のとき Stage2 側の境界ドラッグを無効にする */
+    void setCrossoverEditable (bool e) { crossoverEditable = e; repaint(); }
 
     void bindStageParameters (juce::AudioProcessorValueTreeState& apvts, int stageNum)
     {
@@ -46,6 +48,12 @@ public:
         paramDown[0] = apvts.getParameter ("s" + st + "_down_l");
         paramDown[1] = apvts.getParameter ("s" + st + "_down_m");
         paramDown[2] = apvts.getParameter ("s" + st + "_down_h");
+
+        // Stage 1 は従来 ID を流用 (旧セッションとの互換のため)
+        const juce::String loID = (stageNum == 1) ? "xover_low"  : "s2_xover_low";
+        const juce::String hiID = (stageNum == 1) ? "xover_high" : "s2_xover_high";
+        paramXLow  = apvts.getParameter (loID);
+        paramXHigh = apvts.getParameter (hiID);
     }
 
     std::function<void(int stageNum)> onStageSelected;
@@ -57,6 +65,7 @@ public:
     void mouseExit (const juce::MouseEvent& e) override;
     void mouseDown (const juce::MouseEvent& e) override;
     void mouseDrag (const juce::MouseEvent& e) override;
+    void mouseUp   (const juce::MouseEvent& e) override;
     void mouseDoubleClick (const juce::MouseEvent& e) override;
 
 private:
@@ -65,17 +74,21 @@ private:
     int stage = 1;
     bool isSelected = false;
     const StageMeter* meter = nullptr;
-    std::atomic<float>* xoverLo = nullptr;
-    std::atomic<float>* xoverHi = nullptr;
 
     juce::String title { "STAGE 1" };
 
     juce::RangedAudioParameter* paramGain[3] = { nullptr, nullptr, nullptr };
     juce::RangedAudioParameter* paramUp[3]   = { nullptr, nullptr, nullptr };
     juce::RangedAudioParameter* paramDown[3] = { nullptr, nullptr, nullptr };
+    juce::RangedAudioParameter* paramXLow    = nullptr;
+    juce::RangedAudioParameter* paramXHigh   = nullptr;
 
     int hoveredBand = -1;
     int draggedBand = -1;
+    int hoveredBoundary = -1;   // 0 = LOW/MID, 1 = MID/HIGH
+    int draggedBoundary = -1;
+    bool crossoverEditable = true;
+
     enum DragTarget { TargetGain, TargetUpward, TargetDownward } dragTarget = TargetGain;
     float dragStartValue = 0.0f;
 
@@ -87,9 +100,18 @@ private:
     static constexpr float kMaxDb   =   0.0f;
     static constexpr float kGainMin = -18.0f;
     static constexpr float kGainMax =  18.0f;
+    static constexpr int   kBoundaryGrab = 6;   // 境界の当たり判定 (±px)
 
-    int getBandAtPosition (juce::Point<int> pos) const;
+    float getLoFreq() const;
+    float getHiFreq() const;
+
+    /** バンド矩形の位置と幅を求める (paint / ヒットテストで共用) */
+    void computeBandLayout (juce::Rectangle<int>& areaOut, int bandX[3], int bandW[3]) const;
+
+    int  getBandAtPosition (juce::Point<int> pos) const;
+    int  getBoundaryAtPosition (juce::Point<int> pos) const;
     bool isHeaderPosition (juce::Point<int> pos) const;
+    void applyBoundaryDrag (int boundary, int mouseX);
 
     static float levelToNorm (float db)
     {

@@ -75,15 +75,39 @@ void MultiOtoLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
     const float prop = (float)slider.valueToProportionOfLength(slider.getValue());
     const float fw = b.getWidth() * juce::jlimit(0.0f, 1.0f, prop);
     if (fw > 2.0f) {
-        g.setColour(accent.withAlpha(0.55f));
+        g.setColour(accent.withAlpha(0.60f));
         g.fillRoundedRectangle(b.withWidth(fw), 3.0f);
     }
 
-    g.setFont(juce::Font(juce::FontOptions(10.0f, juce::Font::bold)));
-    g.setColour(MOColors::textDim);
-    g.drawText(slider.getName(), b.reduced(6.0f, 0.0f), juce::Justification::centredLeft, false);
-    g.setColour(MOColors::text);
-    g.drawText(formatValue(slider.getValue()), b.reduced(6.0f, 0.0f), juce::Justification::centredRight, false);
+    // 文字は「塗り部分」と「未塗り部分」でクリップを分けて 2 回描く。
+    // 明るいバーの上に明るい文字が乗って消える問題を根本から回避する。
+    const auto textArea = b.reduced(7.0f, 0.0f);
+    const juce::String nameTxt = slider.getName();
+    const juce::String valTxt  = formatValue(slider.getValue());
+
+    auto drawPair = [&](juce::Colour nameCol, juce::Colour valCol) {
+        g.setFont(juce::Font(juce::FontOptions(10.0f, juce::Font::bold)));
+        g.setColour(nameCol);
+        g.drawText(nameTxt, textArea, juce::Justification::centredLeft, false);
+        g.setColour(valCol);
+        g.drawText(valTxt, textArea, juce::Justification::centredRight, false);
+    };
+
+    // 塗られている領域 → 暗い文字
+    if (fw > 0.5f) {
+        g.saveState();
+        g.reduceClipRegion(b.withWidth(fw).getSmallestIntegerContainer());
+        drawPair(MOColors::bg.withAlpha(0.75f), MOColors::bg);
+        g.restoreState();
+    }
+
+    // 塗られていない領域 → 明るい文字
+    if (fw < b.getWidth() - 0.5f) {
+        g.saveState();
+        g.reduceClipRegion(b.withTrimmedLeft(fw).getSmallestIntegerContainer());
+        drawPair(MOColors::textDim, MOColors::text);
+        g.restoreState();
+    }
 }
 
 void MultiOtoLookAndFeel::drawGroupComponentOutline(juce::Graphics& g, int w, int h, const juce::String&,

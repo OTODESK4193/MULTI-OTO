@@ -3,10 +3,12 @@
 #include "GUI/MinimalUI.h"
 #include "GUI/TabHeader.h"
 #include "GUI/MainPanel.h"
+#include "GUI/PresetBrowser.h"
 
 // ============================================================================
-//  LIFT-X 準拠 ContentComponent パターン (3段構成 ＆ 超大型ノブデザイン)
-//  内部は kBaseW (880px) × kBaseH (750px) の論理座標で動作
+//  ContentComponent パターン
+//  内部は kBaseW (880px) × kBaseH (620px) の論理座標で動作し、
+//  リサイズ時はアフィン変換でスケールする。
 // ============================================================================
 class MultiOtoAudioProcessorEditor : public juce::AudioProcessorEditor
 {
@@ -18,7 +20,7 @@ public:
 
 private:
     static constexpr int kBaseW = 880;
-    static constexpr int kBaseH = 580;
+    static constexpr int kBaseH = 620;
 
     MultiOtoAudioProcessor& audioProcessor;
     MultiOtoLookAndFeel laf;
@@ -33,12 +35,15 @@ private:
         void resized() override;
 
         void connectMeters();
+        void wirePresetBrowser();
+        void refreshPresetName();
 
     private:
         MultiOtoAudioProcessor& processor;
 
         TabHeader header;
         MainPanel mainPanel;
+        PresetBrowser presetBrowser;
     } content;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MultiOtoAudioProcessorEditor)

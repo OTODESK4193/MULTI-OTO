@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "DSP/EngineCore.h"
+#include "Presets/PresetData.h"
 
 juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::createParameterLayout() {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
@@ -30,8 +31,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiOtoAudioProcessor::crea
     addFloat("odd_blend", "Odd Harmonics", 0.0f, 100.0f, 0.0f);
     addFloat("even_blend", "Even Harmonics", 0.0f, 100.0f, 0.0f);
 
-    addFreq("xover_low", "Low Freq", 20.0f, 1000.0f, 88.0f);
-    addFreq("xover_high", "High Freq", 1000.0f, 20000.0f, 2500.0f);
+    // Stage 1 のクロスオーバー (旧バージョンとの互換のため ID は据え置き)
+    addFreq("xover_low", "S1 Low Freq", 20.0f, 1000.0f, 88.0f);
+    addFreq("xover_high", "S1 High Freq", 1000.0f, 20000.0f, 2500.0f);
+    // Stage 2 のクロスオーバー
+    addFreq("s2_xover_low", "S2 Low Freq", 20.0f, 1000.0f, 88.0f);
+    addFreq("s2_xover_high", "S2 High Freq", 1000.0f, 20000.0f, 2500.0f);
+    // ON のとき Stage2 は Stage1 に追従する (既定 ON = v1.0 と同じ挙動)
+    addBool("xover_link", "Crossover Link", true);
 
     auto buildStageParams = [&](int s) {
         juce::String st = juce::String(s);
@@ -124,6 +131,12 @@ void MultiOtoAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     p.xLow = apvts.getRawParameterValue("xover_low")->load(std::memory_order_relaxed);
     p.xHigh = apvts.getRawParameterValue("xover_high")->load(std::memory_order_relaxed);
 
+    // LINK は DSP 側でも解決する。エディタを閉じたまま自動化された場合でも
+    // Stage2 が確実に Stage1 へ追従するようにするため。
+    const bool xLink = apvts.getRawParameterValue("xover_link")->load(std::memory_order_relaxed) > 0.5f;
+    p.xLow2  = xLink ? p.xLow  : apvts.getRawParameterValue("s2_xover_low")->load(std::memory_order_relaxed);
+    p.xHigh2 = xLink ? p.xHigh : apvts.getRawParameterValue("s2_xover_high")->load(std::memory_order_relaxed);
+
     p.s1_gain[0] = apvts.getRawParameterValue("s1_gain_l")->load(std::memory_order_relaxed);
     p.s1_gain[1] = apvts.getRawParameterValue("s1_gain_m")->load(std::memory_order_relaxed);
     p.s1_gain[2] = apvts.getRawParameterValue("s1_gain_h")->load(std::memory_order_relaxed);
@@ -194,7 +207,167 @@ void MultiOtoAudioProcessor::setStateInformation(const void* data, int sizeInByt
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
     if (xmlState.get() != nullptr && xmlState->hasTagName(apvts.state.getType())) {
         apvts.replaceState(juce::ValueTree::fromXml(*xmlState));
+
+        // ヘッダーのプリセット名表示を追従させる
+        if (onPresetNameChanged)
+            juce::MessageManager::callAsync(onPresetNameChanged);
     }
+}
+
+// ============================================================================
+//  プリセット
+// ============================================================================
+juce::File MultiOtoAudioProcessor::getPresetRootDirectory() {
+    auto dir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                   .getChildFile("MULTI-OTO")
+                   .getChildFile("Presets");
+
+    if (!dir.exists()) dir.createDirectory();
+    return dir;
+}
+
+juce::StringArray MultiOtoAudioProcessor::getUserPresetCategories() {
+    juce::StringArray cats;
+    const auto root = getPresetRootDirectory();
+    if (!root.isDirectory()) return cats;
+
+    for (const auto& e : juce::RangedDirectoryIterator(root, false, "*", juce::File::findDirectories))
+        cats.addIfNotAlreadyThere(e.getFile().getFileName());
+
+    cats.sort(true);
+    return cats;
+}
+
+juce::File MultiOtoAudioProcessor::makePresetFile(const juce::String& category,
+                                                  const juce::String& name) const {
+    // ユーザー入力をそのままパスにすると "../" などで任意の場所へ書けてしまう
+    const auto safeCat  = juce::File::createLegalFileName(category.trim());
+    const auto safeName = juce::File::createLegalFileName(name.trim());
+
+    auto dir = getPresetRootDirectory();
+    if (safeCat.isNotEmpty()) dir = dir.getChildFile(safeCat);
+
+    return dir.getChildFile(safeName + "." + getPresetFileExtension());
+}
+
+void MultiOtoAudioProcessor::applyParamValue(const juce::String& paramID, float realValue) {
+    if (auto* p = apvts.getParameter(paramID)) {
+        const auto& r = p->getNormalisableRange();
+        const float v = juce::jlimit(r.start, r.end, realValue);
+        p->setValueNotifyingHost(p->convertTo0to1(v));
+    }
+    else {
+        // ID の打ち間違いを開発中に確実に見つけるため
+        jassertfalse;
+    }
+}
+
+void MultiOtoAudioProcessor::resetAllParamsToDefault() {
+    for (auto* param : getParameters())
+        if (auto* rp = dynamic_cast<juce::RangedAudioParameter*>(param))
+            if (rp->paramID != "total_ott")   // OTT 数はユーザーの選択を尊重して維持
+                rp->setValueNotifyingHost(rp->getDefaultValue());
+}
+
+void MultiOtoAudioProcessor::loadFactoryPreset(int index) {
+    const auto& list = PresetData::getFactoryPresets();
+    if (index < 0 || index >= static_cast<int>(list.size())) return;
+
+    const auto& preset = list[static_cast<size_t>(index)];
+
+    resetAllParamsToDefault();
+    for (const auto& kv : PresetData::toParameterValues(preset))
+        applyParamValue(kv.first, kv.second);
+
+    setCurrentPresetName(preset.name);
+}
+
+void MultiOtoAudioProcessor::resetToInit() {
+    resetAllParamsToDefault();
+    setCurrentPresetName({});
+}
+
+bool MultiOtoAudioProcessor::savePreset(const juce::String& category,
+                                        const juce::String& name,
+                                        juce::String& errorOut) {
+    if (name.trim().isEmpty()) {
+        errorOut = "Preset name cannot be empty.";
+        return false;
+    }
+    if (juce::File::createLegalFileName(name.trim()).isEmpty()) {
+        errorOut = "Preset name contains no usable characters.";
+        return false;
+    }
+
+    const auto target = makePresetFile(category, name);
+
+    if (!target.getParentDirectory().createDirectory()) {
+        errorOut = "Could not create the preset folder.";
+        return false;
+    }
+
+    juce::XmlElement xml("MultiOtoPreset");
+    xml.setAttribute("version", 1);
+    xml.setAttribute("plugin", MULTIOTO_VERSION);
+    xml.setAttribute("name", name.trim());
+    xml.setAttribute("category", category.trim());
+
+    auto state = apvts.copyState();
+    state.setProperty("presetName", name.trim(), nullptr);
+    if (auto stateXml = state.createXml())
+        xml.addChildElement(stateXml.release());
+
+    if (!xml.writeTo(target)) {
+        errorOut = "Could not write the preset file. Check folder permissions.";
+        return false;
+    }
+
+    setCurrentPresetName(name.trim());
+    return true;
+}
+
+bool MultiOtoAudioProcessor::loadPresetFile(const juce::File& presetFile, juce::String& errorOut) {
+    if (!presetFile.existsAsFile()) {
+        errorOut = "Preset file not found.";
+        return false;
+    }
+
+    auto xml = juce::XmlDocument::parse(presetFile);
+    if (xml == nullptr || !xml->hasTagName("MultiOtoPreset")) {
+        errorOut = "This file is not a MULTI-OTO preset.";
+        return false;
+    }
+
+    auto* stateXml = xml->getChildByName(apvts.state.getType());
+    if (stateXml == nullptr) {
+        errorOut = "The preset file is missing its parameter data.";
+        return false;
+    }
+
+    // OTT 数はプリセットに含めない仕様なので、読み込み前後で現在値を維持する
+    float keepOtt = 0.0f;
+    if (auto* ott = apvts.getRawParameterValue("total_ott"))
+        keepOtt = ott->load();
+
+    apvts.replaceState(juce::ValueTree::fromXml(*stateXml));
+
+    if (auto* ottParam = apvts.getParameter("total_ott"))
+        ottParam->setValueNotifyingHost(ottParam->convertTo0to1(keepOtt));
+
+    setCurrentPresetName(presetFile.getFileNameWithoutExtension());
+    return true;
+}
+
+juce::String MultiOtoAudioProcessor::getCurrentPresetName() const {
+    return apvts.state.getProperty("presetName", juce::String()).toString();
+}
+
+void MultiOtoAudioProcessor::setCurrentPresetName(const juce::String& n) {
+    apvts.state.setProperty("presetName", n, nullptr);
+
+    // setStateInformation はメッセージスレッド以外から呼ばれ得るので必ず投げ直す
+    if (onPresetNameChanged)
+        juce::MessageManager::callAsync(onPresetNameChanged);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() {

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(MultiOto VERSION 1.0.0 LANGUAGES C CXX)
+project(MultiOto VERSION 1.1.0 LANGUAGES C CXX)
 
 # ============================================================================
 # C++20
@@ -33,7 +33,7 @@ juce_add_plugin(MultiOto
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     VST3_AUTO_MANIFEST      FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE
-    VERSION                 "1.0.0"
+    VERSION                 "1.1.0"
 )
 
 # ============================================================================
@@ -54,6 +54,10 @@ target_sources(MultiOto PRIVATE
     Source/GUI/DynVisual.h
     Source/GUI/DynVisual.cpp
     Source/GUI/MainPanel.h
+    Source/GUI/PresetBrowser.h
+
+    # プリセット
+    Source/Presets/PresetData.h
 
     # DSPモジュール
     Source/DSP/EngineCore.h
@@ -72,6 +76,7 @@ target_include_directories(MultiOto PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Source
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/DSP
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/GUI
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/Presets
 )
 
 # ============================================================================
@@ -106,7 +111,7 @@ target_compile_definitions(MultiOto PRIVATE
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_DISPLAY_SPLASH_SCREEN=0
-    MULTIOTO_VERSION="1.0.0"
+    MULTIOTO_VERSION="1.1.0"
 )
 
 # ============================================================================

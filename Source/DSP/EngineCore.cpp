@@ -41,7 +41,8 @@ void EngineCore::prepare(double sr, int spb) {
     inGainSmoother.reset(sr, 0.05); outGainSmoother.reset(sr, 0.05);
 
     activeCount = -1;
-    cachedXLow = cachedXHigh = -1.0f;
+    cachedHalf  = -1;
+    cachedXLow1 = cachedXHigh1 = cachedXLow2 = cachedXHigh2 = -1.0f;
 
     reset(); isPrepared.store(true);
 }
@@ -69,16 +70,26 @@ void EngineCore::updateParameters(const EngineParams& p) {
     inGainSmoother.setTargetValue(FastMath::fast_exp2(p.inGain * 0.16609f));
     outGainSmoother.setTargetValue(FastMath::fast_exp2(p.outGain * 0.16609f));
 
-    // クロスオーバー係数の再計算は tan() を大量に呼ぶので、値が動いたときだけ。
-    // (毎ブロック 128 個 × 2 セット × 10 フィルタを更新していた)
-    if (p.xLow != cachedXLow || p.xHigh != cachedXHigh) {
-        for (auto& c : crossovers) c.setFrequencies(p.xLow, p.xHigh);
-        for (auto& dc : dryCrossovers) dc.setFrequencies(p.xLow, p.xHigh);
-        cachedXLow = p.xLow; cachedXHigh = p.xHigh;
-    }
+    const int half = count / 2;
 
-    xoverLoAtomic.store(p.xLow, std::memory_order_relaxed);
-    xoverHiAtomic.store(p.xHigh, std::memory_order_relaxed);
+    // クロスオーバー係数の再計算は tan() を大量に呼ぶので、値が動いたときだけ。
+    // Stage1 が担当するノード [0, half) と Stage2 の [half, MAX) で別々の周波数を持つ。
+    const bool xoverDirty = (p.xLow  != cachedXLow1)  || (p.xHigh  != cachedXHigh1)
+                         || (p.xLow2 != cachedXLow2)  || (p.xHigh2 != cachedXHigh2)
+                         || (half != cachedHalf);
+
+    if (xoverDirty) {
+        for (int i = 0; i < MAX_NODES; ++i) {
+            const bool isS1 = (i < half);
+            const float lo = isS1 ? p.xLow  : p.xLow2;
+            const float hi = isS1 ? p.xHigh : p.xHigh2;
+            crossovers[i].setFrequencies(lo, hi);
+            dryCrossovers[i].setFrequencies(lo, hi);
+        }
+        cachedXLow1 = p.xLow;  cachedXHigh1 = p.xHigh;
+        cachedXLow2 = p.xLow2; cachedXHigh2 = p.xHigh2;
+        cachedHalf  = half;
+    }
 
     postHpfL.setCutoffFrequency(p.post_hpf); postHpfR.setCutoffFrequency(p.post_hpf);
     postLpfL.setCutoffFrequency(p.post_lpf); postLpfR.setCutoffFrequency(p.post_lpf);
@@ -96,7 +107,6 @@ void EngineCore::updateParameters(const EngineParams& p) {
     const auto c2 = DynamicsNode::computeCoeffs(currentSampleRate, p.s2_gain, p.s2_depth,
                                                 p.s2_up, p.s2_down, p.s2_time, p.s2_atk, p.s2_rel, p.s2_mix);
 
-    const int half = count / 2;
     for (int i = 0; i < half; ++i)      nodes[i].applyCoeffs(c1);
     for (int i = half; i < count; ++i)  nodes[i].applyCoeffs(c2);
 

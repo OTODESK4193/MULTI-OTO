@@ -38,11 +38,39 @@ public:
     /** GUI がメーター値を読み取るためのアクセサ */
     EngineCore* getEngineCore() const { return engineCore.get(); }
 
+    // ======================================================================
+    //  プリセット
+    //  ・FACTORY はバイナリ内蔵 (PresetData.h)。ディスクには書き出さない。
+    //  ・ユーザープリセットは %APPDATA%\MULTI-OTO\Presets\<Category>\<Name>.motopreset
+    //  ・OTT COUNT (total_ott) はプリセットに含めず、常に現在値を維持する。
+    // ======================================================================
+    static juce::File        getPresetRootDirectory();
+    static juce::StringArray getUserPresetCategories();
+    static juce::String      getPresetFileExtension() { return "motopreset"; }
+
+    juce::File makePresetFile(const juce::String& category, const juce::String& name) const;
+
+    bool savePreset(const juce::String& category, const juce::String& name, juce::String& errorOut);
+    bool loadPresetFile(const juce::File& presetFile, juce::String& errorOut);
+    void loadFactoryPreset(int index);
+    void resetToInit();
+
+    juce::String getCurrentPresetName() const;
+    void         setCurrentPresetName(const juce::String& n);
+
+    /** GUI へ「プリセット名が変わった」ことを知らせるコールバック */
+    std::function<void()> onPresetNameChanged;
+
 private:
     std::unique_ptr<EngineCore> engineCore;
     double currentSampleRate = 0.0; // Ableton Live Fail-safe
 
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+
+    /** 1 パラメータへ実値 (正規化前) を書き込む */
+    void applyParamValue(const juce::String& paramID, float realValue);
+    /** total_ott を除く全パラメータを既定値へ戻す */
+    void resetAllParamsToDefault();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MultiOtoAudioProcessor)
 };
